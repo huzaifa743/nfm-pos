@@ -1,0 +1,177 @@
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+const fs = require('fs');
+
+const dbPath = path.join(__dirname, 'pos.db');
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('Error opening database:', err);
+  } else {
+    console.log('Connected to SQLite database');
+    initializeDatabase();
+  }
+});
+
+function initializeDatabase() {
+  // Users table
+  db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    role TEXT DEFAULT 'cashier',
+    full_name TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  // Categories table
+  db.run(`CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  // Products table
+  db.run(`CREATE TABLE IF NOT EXISTS products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    price REAL NOT NULL,
+    category_id INTEGER,
+    image TEXT,
+    description TEXT,
+    stock_quantity INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES categories(id)
+  )`);
+
+  // Customers table
+  db.run(`CREATE TABLE IF NOT EXISTS customers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    phone TEXT,
+    email TEXT,
+    country TEXT,
+    city TEXT,
+    address TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  // Sales table
+  db.run(`CREATE TABLE IF NOT EXISTS sales (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sale_number TEXT UNIQUE NOT NULL,
+    customer_id INTEGER,
+    user_id INTEGER NOT NULL,
+    subtotal REAL NOT NULL,
+    discount_amount REAL DEFAULT 0,
+    discount_type TEXT DEFAULT 'fixed',
+    vat_percentage REAL DEFAULT 0,
+    vat_amount REAL DEFAULT 0,
+    total REAL NOT NULL,
+    payment_method TEXT NOT NULL,
+    payment_amount REAL NOT NULL,
+    change_amount REAL DEFAULT 0,
+    order_type TEXT DEFAULT 'dine-in',
+    status TEXT DEFAULT 'completed',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )`);
+
+  // Sale items table
+  db.run(`CREATE TABLE IF NOT EXISTS sale_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sale_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    product_name TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    unit_price REAL NOT NULL,
+    total_price REAL NOT NULL,
+    FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id)
+  )`);
+
+  // Settings table
+  db.run(`CREATE TABLE IF NOT EXISTS settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE NOT NULL,
+    value TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  // Insert default admin user (password: admin123)
+  // We'll use a callback to properly hash the password
+  db.get('SELECT id FROM users WHERE username = ?', ['admin'], (err, row) => {
+    if (err) {
+      console.error('Error checking admin user:', err);
+      return;
+    }
+    
+    if (!row) {
+      // Admin doesn't exist, create with hashed password
+      const bcrypt = require('bcryptjs');
+      bcrypt.hash('admin123', 10, (err, hash) => {
+        if (err) {
+          console.error('Error hashing password:', err);
+          return;
+        }
+        db.run(
+          'INSERT INTO users (username, email, password, role, full_name) VALUES (?, ?, ?, ?, ?)',
+          ['admin', 'admin@restaurant.com', hash, 'admin', 'Administrator'],
+          (err) => {
+            if (err) {
+              console.error('Error creating admin user:', err);
+            } else {
+              console.log('✅ Default admin user created: admin / admin123');
+            }
+          }
+        );
+      });
+    }
+  });
+
+  // Insert default settings
+  db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('restaurant_name', 'My Restaurant')`);
+  db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('restaurant_logo', '')`);
+  db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('vat_percentage', '0')`);
+  db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('currency', 'USD')`);
+  db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('language', 'en')`);
+}
+
+function query(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows);
+    });
+  });
+}
+
+function run(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function(err) {
+      if (err) reject(err);
+      else resolve({ id: this.lastID, changes: this.changes });
+    });
+  });
+}
+
+function get(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+}
+
+module.exports = { db, query, run, get };

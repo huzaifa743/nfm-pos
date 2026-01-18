@@ -1,0 +1,113 @@
+const express = require('express');
+const { query, get } = require('../database');
+const { authenticateToken } = require('../middleware/auth');
+
+const router = express.Router();
+
+// Get dashboard stats
+router.get('/stats', authenticateToken, async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Total Sales Today (count)
+    const salesToday = await get(
+      'SELECT COUNT(*) as count FROM sales WHERE DATE(created_at) = ?',
+      [today]
+    );
+
+    // Total Revenue Today
+    const revenueToday = await get(
+      'SELECT COALESCE(SUM(total), 0) as total FROM sales WHERE DATE(created_at) = ?',
+      [today]
+    );
+
+    // Total Products
+    const totalProducts = await get('SELECT COUNT(*) as count FROM products');
+
+    // Total Categories
+    const totalCategories = await get('SELECT COUNT(*) as count FROM categories');
+
+    // Average Sale Value Today
+    const avgSaleValue = await get(
+      'SELECT COALESCE(AVG(total), 0) as avg FROM sales WHERE DATE(created_at) = ?',
+      [today]
+    );
+
+    // High Selling Products (Top 5)
+    const topProducts = await query(
+      `SELECT p.name, p.id, SUM(si.quantity) as total_quantity, SUM(si.total_price) as total_revenue
+       FROM sale_items si
+       JOIN products p ON si.product_id = p.id
+       JOIN sales s ON si.sale_id = s.id
+       WHERE DATE(s.created_at) = ?
+       GROUP BY p.id, p.name
+       ORDER BY total_quantity DESC
+       LIMIT 5`,
+      [today]
+    );
+
+    res.json({
+      totalSalesToday: salesToday.count,
+      totalRevenueToday: revenueToday.total,
+      totalProducts: totalProducts.count,
+      totalCategories: totalCategories.count,
+      avgSaleValue: avgSaleValue.avg,
+      topProducts: topProducts
+    });
+  } catch (error) {
+    console.error('Dashboard stats error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get chart data
+router.get('/charts', authenticateToken, async (req, res) => {
+  try {
+    const { period = '7' } = req.query; // days
+    const days = parseInt(period);
+
+    // Sales over time
+    const salesOverTime = await query(
+      `SELECT DATE(created_at) as date, COUNT(*) as count, SUM(total) as revenue
+       FROM sales
+       WHERE DATE(created_at) >= DATE('now', '-' || ? || ' days')
+       GROUP BY DATE(created_at)
+       ORDER BY date ASC`,
+      [days]
+    );
+
+    // Revenue by payment method
+    const revenueByPayment = await query(
+      `SELECT payment_method, SUM(total) as total
+       FROM sales
+       WHERE DATE(created_at) >= DATE('now', '-' || ? || ' days')
+       GROUP BY payment_method`,
+      [days]
+    );
+
+    // Top categories
+    const topCategories = await query(
+      `SELECT c.name, SUM(si.total_price) as revenue, SUM(si.quantity) as quantity
+       FROM sale_items si
+       JOIN products p ON si.product_id = p.id
+       JOIN categories c ON p.category_id = c.id
+       JOIN sales s ON si.sale_id = s.id
+       WHERE DATE(s.created_at) >= DATE('now', '-' || ? || ' days')
+       GROUP BY c.id, c.name
+       ORDER BY revenue DESC
+       LIMIT 10`,
+      [days]
+    );
+
+    res.json({
+      salesOverTime,
+      revenueByPayment,
+      topCategories
+    });
+  } catch (error) {
+    console.error('Dashboard charts error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+module.exports = router;

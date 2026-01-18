@@ -1,0 +1,566 @@
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useSettings } from '../contexts/SettingsContext';
+import api from '../api/api';
+import toast from 'react-hot-toast';
+import { Plus, Search, Edit, Trash2, X, Folder } from 'lucide-react';
+
+export default function Inventory() {
+  const { t } = useTranslation();
+  const { formatCurrency } = useSettings();
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const [productForm, setProductForm] = useState({
+    name: '',
+    price: '',
+    category_id: '',
+    description: '',
+    image: null,
+  });
+
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
+    description: '',
+  });
+
+  useEffect(() => {
+    fetchProducts();
+    fetchCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory, searchTerm]);
+
+  const fetchProducts = async () => {
+    try {
+      const params = {};
+      if (selectedCategory !== 'all') params.category_id = selectedCategory;
+      if (searchTerm) params.search = searchTerm;
+
+      const response = await api.get('/products', { params });
+      setProducts(response.data);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      toast.error('Failed to load products');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/categories');
+      setCategories(response.data);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  const handleProductSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!productForm.name || !productForm.price) {
+      toast.error(t('inventory.nameRequired') + ' and ' + t('inventory.priceRequired'));
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('name', productForm.name);
+      formData.append('price', productForm.price);
+      formData.append('category_id', productForm.category_id || '');
+      formData.append('description', productForm.description || '');
+      if (productForm.image) {
+        formData.append('image', productForm.image);
+      }
+
+      if (editingProduct) {
+        await api.put(`/products/${editingProduct.id}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        toast.success('Product updated successfully');
+      } else {
+        await api.post('/products', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        toast.success('Product added successfully');
+      }
+
+      setShowProductModal(false);
+      setEditingProduct(null);
+      setProductForm({
+        name: '',
+        price: '',
+        category_id: '',
+        description: '',
+        image: null,
+      });
+      fetchProducts();
+    } catch (error) {
+      console.error('Error saving product:', error);
+      toast.error('Failed to save product');
+    }
+  };
+
+  const handleCategorySubmit = async (e) => {
+    e.preventDefault();
+
+    if (!categoryForm.name) {
+      toast.error('Category name is required');
+      return;
+    }
+
+    try {
+      if (editingCategory) {
+        await api.put(`/categories/${editingCategory.id}`, categoryForm);
+        toast.success('Category updated successfully');
+      } else {
+        await api.post('/categories', categoryForm);
+        toast.success('Category added successfully');
+      }
+      setCategoryForm({ name: '', description: '' });
+      setEditingCategory(null);
+      fetchCategories();
+    } catch (error) {
+      console.error('Error saving category:', error);
+      toast.error('Failed to save category');
+    }
+  };
+
+  const handleEdit = (product) => {
+    setEditingProduct(product);
+    setProductForm({
+      name: product.name,
+      price: product.price,
+      category_id: product.category_id || '',
+      description: product.description || '',
+      image: null,
+    });
+    setShowProductModal(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this product?')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/products/${id}`);
+      toast.success('Product deleted successfully');
+      fetchProducts();
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error('Failed to delete product');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-gray-800">{t('inventory.title')}</h1>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowCategoryModal(true)}
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
+          >
+            <Folder className="w-5 h-5" />
+            {t('inventory.manageCategories')}
+          </button>
+          <button
+            onClick={() => {
+              setEditingProduct(null);
+              setProductForm({
+                name: '',
+                price: '',
+                category_id: selectedCategory !== 'all' ? selectedCategory : '',
+                description: '',
+                stock_quantity: 0,
+                image: null,
+              });
+              setShowProductModal(true);
+            }}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            {t('inventory.addProduct')}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex gap-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder={t('inventory.searchProduct')}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+          />
+        </div>
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+        >
+          <option value="all">{t('billing.allCategories')}</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Image
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('inventory.productName')}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('inventory.productPrice')}
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {products.map((product) => (
+                  <tr key={product.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {product.image ? (
+                        <img
+                          src={`http://localhost:5000${product.image}`}
+                          alt={product.name}
+                          className="w-16 h-16 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+                          <span className="text-gray-400 text-xs">No Image</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {product.name}
+                      </div>
+                      {product.description && (
+                        <div className="text-sm text-gray-500">
+                          {product.description.substring(0, 50)}...
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.category_name || 'Uncategorized'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                      {formatCurrency(product.price)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleEdit(product)}
+                          className="text-primary-600 hover:text-primary-900"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Product Modal */}
+      {showProductModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">
+                {editingProduct ? t('inventory.editProduct') : t('inventory.addProduct')}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowProductModal(false);
+                  setEditingProduct(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleProductSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('inventory.productName')} *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={productForm.name}
+                  onChange={(e) =>
+                    setProductForm({ ...productForm, name: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('inventory.productPrice')} *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    step="0.01"
+                    min="0"
+                    value={productForm.price}
+                    onChange={(e) =>
+                      setProductForm({ ...productForm, price: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('inventory.category')}
+                  </label>
+                  <select
+                    value={productForm.category_id}
+                    onChange={(e) =>
+                      setProductForm({ ...productForm, category_id: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('inventory.image')}
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    setProductForm({ ...productForm, image: e.target.files[0] })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('inventory.description')}
+                </label>
+                <textarea
+                  value={productForm.description}
+                  onChange={(e) =>
+                    setProductForm({ ...productForm, description: e.target.value })
+                  }
+                  rows="3"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowProductModal(false);
+                    setEditingProduct(null);
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                >
+                  {t('common.save')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Category Modal */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">
+                {t('inventory.manageCategories')}
+              </h2>
+              <button
+                onClick={() => setShowCategoryModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <button
+                onClick={() => {
+                  setEditingCategory(null);
+                  setCategoryForm({ name: '', description: '' });
+                  setTimeout(() => {
+                    document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' });
+                  }, 100);
+                }}
+                className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center justify-center gap-2 text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Add New Category
+              </button>
+            </div>
+
+            <div className="space-y-2 mb-6 max-h-64 overflow-y-auto">
+              {categories.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">No categories found</p>
+              ) : (
+                categories.map((category) => (
+                  <div
+                    key={category.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                  >
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-800">{category.name}</p>
+                      {category.description && (
+                        <p className="text-sm text-gray-500 mt-1">{category.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingCategory(category);
+                          setCategoryForm({ name: category.name, description: category.description || '' });
+                          // Scroll to form
+                          setTimeout(() => {
+                            document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' });
+                          }, 100);
+                        }}
+                        className="text-primary-600 hover:text-primary-800"
+                        title="Edit"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (window.confirm(`Are you sure you want to delete "${category.name}"?`)) {
+                            try {
+                              await api.delete(`/categories/${category.id}`);
+                              toast.success('Category deleted successfully');
+                              fetchCategories();
+                            } catch (error) {
+                              console.error('Error deleting category:', error);
+                              toast.error('Failed to delete category');
+                            }
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-800"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form onSubmit={handleCategorySubmit} className="space-y-4 border-t pt-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Category Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={categoryForm.name}
+                  onChange={(e) =>
+                    setCategoryForm({ ...categoryForm, name: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={categoryForm.description}
+                  onChange={(e) =>
+                    setCategoryForm({ ...categoryForm, description: e.target.value })
+                  }
+                  rows="3"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                >
+                  {t('common.save')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
