@@ -10,7 +10,11 @@
     "build": "cd client && npm run build",
     "start": "node --no-deprecation server/index.js",
     "install-all": "npm install && cd client && npm install",
-    "reset-admin": "node server/reset-admin.js"
+    "reset-admin": "node server/reset-admin.js",
+    "pm2:start": "pm2 start ecosystem.config.js --env production",
+    "pm2:stop": "pm2 stop pos-system",
+    "pm2:restart": "pm2 restart pos-system",
+    "pm2:logs": "pm2 logs pos-system"
   },
   "keywords": [
     "pos",
