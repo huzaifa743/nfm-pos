@@ -1,36 +1,27 @@
 # Dependencies
 node_modules/
 client/node_modules/
-package-lock.json
-client/package-lock.json
-
-# Environment variables
-.env
-.env.local
-.env.production
-.env.development
-
-# Database files
-server/pos.db
-server/pos.db-journal
-*.db
-*.db-journal
-
-# Build outputs
-client/dist/
-client/build/
-
-# Logs
-logs/
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# OS files
-.DS_Store
-Thumbs.db
-desktop.ini
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Build outputs
+client/dist/
+client/build/
+*.log
+
+# Database (SQLite)
+server/*.db
+server/*.db-journal
+server/*.db-wal
+server/*.db-shm
 
 # IDE
 .vscode/
@@ -39,9 +30,17 @@ desktop.ini
 *.swo
 *~
 
-# Uploads (optional - uncomment if you don't want to track uploaded files)
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (optional - uncomment if you don't want to commit uploads)
 # server/uploads/
 
-# Temporary files
-*.tmp
-*.temp
+# PM2
+.pm2/
+
+# Misc
+*.pid
+*.seed
+*.pid.lock

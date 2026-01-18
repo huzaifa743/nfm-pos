@@ -1,0 +1,10 @@
+{
+  "appName": "restaurant-pos",
+  "buildCommand": "npm run install-all && npm run build",
+  "startCommand": "npm start",
+  "framework": "nodejs",
+  "nodeVersion": "18",
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
