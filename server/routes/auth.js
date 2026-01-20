@@ -15,35 +15,48 @@ router.post('/login', async (req, res) => {
     // Check if super admin login (no tenant_code)
     if (!tenant_code) {
       // Super admin login - check master database
-      const superAdmin = await masterDbHelpers.get(
-        'SELECT * FROM super_admins WHERE username = ?',
-        [username]
-      );
+      try {
+        const superAdmin = await masterDbHelpers.get(
+          'SELECT * FROM super_admins WHERE username = ?',
+          [username]
+        );
 
-      if (!superAdmin) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-
-      const validPassword = await bcrypt.compare(password, superAdmin.password);
-      if (!validPassword) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-
-      const token = jwt.sign(
-        { id: superAdmin.id, username: superAdmin.username, role: 'super_admin', tenant_code: null },
-        JWT_SECRET,
-        { expiresIn: '24h' }
-      );
-      return res.json({
-        token,
-        user: {
-          id: superAdmin.id,
-          username: superAdmin.username,
-          email: superAdmin.email,
-          role: 'super_admin',
-          tenant_code: null
+        if (!superAdmin) {
+          return res.status(401).json({ 
+            error: 'Invalid credentials. Super admin not found. Please run: npm run setup-super-admin' 
+          });
         }
-      });
+
+        const validPassword = await bcrypt.compare(password, superAdmin.password);
+        if (!validPassword) {
+          return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign(
+          { id: superAdmin.id, username: superAdmin.username, role: 'super_admin', tenant_code: null },
+          JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+        return res.json({
+          token,
+          user: {
+            id: superAdmin.id,
+            username: superAdmin.username,
+            email: superAdmin.email,
+            role: 'super_admin',
+            tenant_code: null
+          }
+        });
+      } catch (dbError) {
+        console.error('Super admin login database error:', dbError);
+        // Check if it's a table doesn't exist error
+        if (dbError.message && dbError.message.includes('no such table')) {
+          return res.status(500).json({ 
+            error: 'Super admin table not initialized. Please run: npm run setup-super-admin' 
+          });
+        }
+        throw dbError; // Re-throw to be caught by outer catch
+      }
     }
 
     // Tenant login - check master database first for tenant owner
@@ -84,53 +97,65 @@ router.post('/login', async (req, res) => {
     }
 
     // Check tenant database for regular users
-    const tenantDb = await getTenantDatabase(tenant_code);
-    const db = createDbHelpers(tenantDb);
-
     try {
-      const user = await db.get(
-        'SELECT * FROM users WHERE username = ? OR email = ?',
-        [username, username]
-      );
+      const tenantDb = await getTenantDatabase(tenant_code);
+      const db = createDbHelpers(tenantDb);
 
-      if (!user) {
-        await db.close();
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
+      try {
+        const user = await db.get(
+          'SELECT * FROM users WHERE username = ? OR email = ?',
+          [username, username]
+        );
 
-      const validPassword = await bcrypt.compare(password, user.password);
-      if (!validPassword) {
-        await db.close();
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-
-      const token = jwt.sign(
-        {
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          tenant_code: tenant_code
-        },
-        JWT_SECRET,
-        { expiresIn: '24h' }
-      );
-
-      await db.close();
-
-      res.json({
-        token,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-          full_name: user.full_name,
-          tenant_code: tenant_code
+        if (!user) {
+          await db.close();
+          return res.status(401).json({ 
+            error: 'Invalid credentials. User not found in tenant database.' 
+          });
         }
-      });
-    } catch (error) {
-      await db.close();
-      throw error;
+
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+          await db.close();
+          return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign(
+          {
+            id: user.id,
+            username: user.username,
+            role: user.role,
+            tenant_code: tenant_code
+          },
+          JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+
+        await db.close();
+
+        res.json({
+          token,
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            full_name: user.full_name,
+            tenant_code: tenant_code
+          }
+        });
+      } catch (error) {
+        await db.close();
+        throw error;
+      }
+    } catch (tenantDbError) {
+      console.error('Tenant database error:', tenantDbError);
+      if (tenantDbError.message && tenantDbError.message.includes('not found')) {
+        return res.status(404).json({ 
+          error: `Tenant '${tenant_code}' not found. Please run: npm run setup-demo` 
+        });
+      }
+      throw tenantDbError; // Re-throw to be caught by outer catch
     }
   } catch (error) {
     console.error('Login error:', error);

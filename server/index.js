@@ -3,8 +3,32 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+// Import tenantManager to check if setup is needed
+const { masterDbHelpers } = require('./tenantManager');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Check if super admin exists on startup
+(async () => {
+  try {
+    const superAdmin = await masterDbHelpers.get('SELECT * FROM super_admins LIMIT 1');
+    if (!superAdmin) {
+      console.log('\n⚠️  WARNING: Super admin not found!');
+      console.log('⚠️  Please run: npm run setup-all');
+      console.log('⚠️  This will create super admin and demo tenant.\n');
+    } else {
+      console.log('✅ Super admin account found');
+    }
+  } catch (error) {
+    if (error.message && error.message.includes('no such table')) {
+      console.log('\n⚠️  WARNING: Database tables not initialized!');
+      console.log('⚠️  Please run: npm run setup-all\n');
+    } else {
+      console.error('Error checking super admin:', error.message);
+    }
+  }
+})();
 
 // Middleware
 app.use(cors());
