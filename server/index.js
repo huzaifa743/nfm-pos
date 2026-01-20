@@ -9,65 +9,89 @@ const { masterDbHelpers, ensureInitialized } = require('./tenantManager');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Auto-setup on first run (non-blocking)
-(async () => {
-  try {
-    // Ensure database is initialized
-    await ensureInitialized();
-    
-    // Check if super admin exists, create if missing
+// Auto-setup on first run (non-blocking, runs after server starts)
+setTimeout(() => {
+  (async () => {
     try {
-      const superAdmin = await masterDbHelpers.get('SELECT * FROM super_admins LIMIT 1');
-      if (!superAdmin) {
-        console.log('\n⚠️  Super admin not found!');
-        console.log('⚠️  Run: npm run setup-super-admin (or it will be created on first super admin login attempt)\n');
-      } else {
-        console.log('✅ Super admin account found');
-      }
-    } catch (err) {
-      console.log('⚠️  Could not check super admin:', err.message);
-    }
-    
-    // Auto-create demo tenant if it doesn't exist
-    try {
-      const demoTenant = await masterDbHelpers.get('SELECT * FROM tenants WHERE tenant_code = ?', ['DEMO']);
-      if (!demoTenant) {
-        console.log('⚠️  Demo tenant not found. Auto-creating demo tenant with sample data...');
-        const { autoSetupDemoTenant } = require('./autoSetupDemo');
-        const result = await autoSetupDemoTenant();
-        if (result.success) {
-          console.log('✅ Demo tenant auto-created successfully!');
+      // Ensure database is initialized
+      await ensureInitialized();
+      
+      // Check if super admin exists, create if missing
+      try {
+        const superAdmin = await masterDbHelpers.get('SELECT * FROM super_admins LIMIT 1');
+        if (!superAdmin) {
+          console.log('\n⚠️  Super admin not found!');
+          console.log('⚠️  Run: npm run setup-super-admin (or it will be created on first super admin login attempt)\n');
         } else {
-          console.log('⚠️  Auto-setup failed:', result.error);
-          console.log('   Run manually: npm run setup-demo');
+          console.log('✅ Super admin account found');
         }
-      } else {
-        console.log('✅ Demo tenant found');
+      } catch (err) {
+        console.log('⚠️  Could not check super admin:', err.message);
       }
-    } catch (err) {
-      console.log('⚠️  Could not check/create demo tenant:', err.message);
-      console.log('   Run manually: npm run setup-demo');
+      
+      // Auto-create demo tenant if it doesn't exist
+      try {
+        const demoTenant = await masterDbHelpers.get('SELECT * FROM tenants WHERE tenant_code = ?', ['DEMO']);
+        if (!demoTenant) {
+          console.log('⚠️  Demo tenant not found. Auto-creating demo tenant with sample data...');
+          const { autoSetupDemoTenant } = require('./autoSetupDemo');
+          const result = await autoSetupDemoTenant();
+          if (result.success) {
+            console.log('✅ Demo tenant auto-created successfully!');
+          } else {
+            console.log('⚠️  Auto-setup failed:', result.error);
+            console.log('   Run manually: npm run setup-demo');
+          }
+        } else {
+          console.log('✅ Demo tenant found');
+        }
+      } catch (err) {
+        console.log('⚠️  Could not check/create demo tenant:', err.message);
+        console.log('   Run manually: npm run setup-demo');
+      }
+    } catch (error) {
+      if (error.message && error.message.includes('no such table')) {
+        console.log('\n⚠️  WARNING: Database tables not initialized!');
+        console.log('⚠️  Please run: npm run setup-all\n');
+      } else {
+        console.error('Error in auto-setup:', error.message);
+      }
     }
-  } catch (error) {
-    if (error.message && error.message.includes('no such table')) {
-      console.log('\n⚠️  WARNING: Database tables not initialized!');
-      console.log('⚠️  Please run: npm run setup-all\n');
-    } else {
-      console.error('Error in auto-setup:', error.message);
-    }
-  }
-})().catch(err => {
-  console.error('Auto-setup error (non-fatal):', err.message);
-});
+  })().catch(err => {
+    console.error('Auto-setup error (non-fatal):', err.message);
+  });
+}, 1000); // Delay auto-setup by 1 second to allow server to start responding to healthchecks
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint for Railway/Render monitoring
+// Health check endpoint for Railway/Render monitoring (must be early, before any async operations)
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Root endpoint for healthcheck
+app.get('/', (req, res) => {
+  // For healthcheck requests, return JSON immediately
+  if (req.headers['user-agent']?.includes('Healthcheck') || req.query.health === 'check') {
+    return res.status(200).json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  }
+  // In production, serve React app
+  if (process.env.NODE_ENV === 'production') {
+    const distPath = path.join(__dirname, '../client/dist');
+    return res.sendFile(path.join(distPath, 'index.html'));
+  }
+  res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
 
 // Root endpoint - will serve React app in production, but Railway healthcheck can use /health
