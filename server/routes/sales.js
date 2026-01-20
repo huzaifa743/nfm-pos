@@ -49,7 +49,7 @@ router.get('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) 
 });
 
 // Get single sale with items
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const sale = await req.db.get(
       `SELECT s.*, u.username as user_name, c.name as customer_name, c.phone as customer_phone, 
@@ -102,7 +102,7 @@ router.post('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res)
     const saleNumber = `SALE-${Date.now()}-${uuidv4().substring(0, 8).toUpperCase()}`;
 
     // Create sale
-    const saleResult = await run(
+    const saleResult = await req.db.run(
       `INSERT INTO sales (sale_number, customer_id, user_id, subtotal, discount_amount, discount_type, 
        vat_percentage, vat_amount, total, payment_method, payment_amount, change_amount, order_type) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -152,7 +152,7 @@ router.post('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res)
       [saleResult.id]
     );
 
-    const saleItems = await query('SELECT * FROM sale_items WHERE sale_id = ?', [saleResult.id]);
+    const saleItems = await req.db.query('SELECT * FROM sale_items WHERE sale_id = ?', [saleResult.id]);
 
     res.status(201).json({ ...sale, items: saleItems });
   } catch (error) {

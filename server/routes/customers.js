@@ -64,11 +64,11 @@ router.post('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res)
 });
 
 // Update customer
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { name, phone, email, country, city, address } = req.body;
 
-    await run(
+    await req.db.run(
       'UPDATE customers SET name = ?, phone = ?, email = ?, country = ?, city = ?, address = ? WHERE id = ?',
       [name, phone || null, email || null, country || null, city || null, address || null, req.params.id]
     );
@@ -84,7 +84,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // Delete customer
 router.delete('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
-    await run('DELETE FROM customers WHERE id = ?', [req.params.id]);
+    await req.db.run('DELETE FROM customers WHERE id = ?', [req.params.id]);
     res.json({ message: 'Customer deleted successfully' });
   } catch (error) {
     console.error('Delete customer error:', error);

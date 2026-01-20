@@ -16,7 +16,7 @@ router.get('/stats', authenticateToken, getTenantDb, closeTenantDb, async (req, 
     );
 
     // Total Revenue Today
-    const revenueToday = await get(
+    const revenueToday = await req.db.get(
       'SELECT COALESCE(SUM(total), 0) as total FROM sales WHERE DATE(created_at) = ?',
       [today]
     );
@@ -28,7 +28,7 @@ router.get('/stats', authenticateToken, getTenantDb, closeTenantDb, async (req, 
     const totalCategories = await req.db.get('SELECT COUNT(*) as count FROM categories');
 
     // Average Sale Value Today
-    const avgSaleValue = await get(
+    const avgSaleValue = await req.db.get(
       'SELECT COALESCE(AVG(total), 0) as avg FROM sales WHERE DATE(created_at) = ?',
       [today]
     );
@@ -67,7 +67,7 @@ router.get('/charts', authenticateToken, getTenantDb, closeTenantDb, async (req,
     const days = parseInt(period);
 
     // Sales over time
-    const salesOverTime = await query(
+    const salesOverTime = await req.db.query(
       `SELECT DATE(created_at) as date, COUNT(*) as count, SUM(total) as revenue
        FROM sales
        WHERE DATE(created_at) >= DATE('now', '-' || ? || ' days')

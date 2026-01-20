@@ -41,7 +41,7 @@ router.post('/', authenticateToken, requireRole('admin'), getTenantDb, closeTena
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const result = await run(
+    const result = await req.db.run(
       'INSERT INTO users (username, email, password, full_name, role) VALUES (?, ?, ?, ?, ?)',
       [username, email, hashedPassword, full_name || null, role || 'cashier']
     );

@@ -5,7 +5,7 @@ const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
 const router = express.Router();
 
 // Get sales report
-router.get('/sales', authenticateToken, async (req, res) => {
+router.get('/sales', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { start_date, end_date, payment_method, order_type } = req.query;
 
