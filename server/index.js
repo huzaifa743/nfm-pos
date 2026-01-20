@@ -69,15 +69,12 @@ app.use(express.urlencoded({ extended: true }));
 
 // Health check endpoint for Railway/Render monitoring (must be FIRST, before any other routes)
 app.get('/health', (req, res) => {
-  try {
-    res.status(200).json({ 
-      status: 'ok', 
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime()
-    });
-  } catch (err) {
-    res.status(200).json({ status: 'ok' }); // Fallback if something fails
-  }
+  // Simple, fast response - no try-catch needed
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
 // Root endpoint - will serve React app in production, but Railway healthcheck can use /health
@@ -153,11 +150,13 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Start server
+// Start server immediately - healthcheck will respond right away
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log(`✅ Health check available at http://0.0.0.0:${PORT}/health`);
+  console.log(`✅ Health check endpoint: http://0.0.0.0:${PORT}/health`);
   if (process.env.NODE_ENV === 'production') {
     console.log(`✅ Production mode: Serving React app from client/dist`);
   }
+  // Signal that server is ready for healthchecks
+  console.log(`✅ Server ready to accept connections`);
 });
