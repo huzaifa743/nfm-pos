@@ -2,8 +2,8 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { query, run, get } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
+const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
 
 const router = express.Router();
 
@@ -39,7 +39,7 @@ const upload = multer({
 });
 
 // Get all products
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { category_id, search } = req.query;
     let sql = 'SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE 1=1';
@@ -58,7 +58,7 @@ router.get('/', async (req, res) => {
 
     sql += ' ORDER BY p.created_at DESC';
 
-    const products = await query(sql, params);
+    const products = await req.db.query(sql, params);
     res.json(products);
   } catch (error) {
     console.error('Get products error:', error);
@@ -67,9 +67,9 @@ router.get('/', async (req, res) => {
 });
 
 // Get single product
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
-    const product = await get(
+    const product = await req.db.get(
       'SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?',
       [req.params.id]
     );
@@ -86,7 +86,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create product
-router.post('/', authenticateToken, upload.single('image'), async (req, res) => {
+router.post('/', authenticateToken, getTenantDb, closeTenantDb, upload.single('image'), async (req, res) => {
   try {
     const { name, price, category_id, description } = req.body;
 
@@ -96,12 +96,12 @@ router.post('/', authenticateToken, upload.single('image'), async (req, res) => 
 
     const image = req.file ? `/uploads/products/${req.file.filename}` : null;
 
-    const result = await run(
+    const result = await req.db.run(
       'INSERT INTO products (name, price, category_id, image, description, stock_quantity) VALUES (?, ?, ?, ?, ?, ?)',
       [name, parseFloat(price), category_id || null, image, description || null, 0]
     );
 
-    const product = await get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [result.id]);
+    const product = await req.db.get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [result.id]);
 
     res.status(201).json(product);
   } catch (error) {
@@ -111,7 +111,7 @@ router.post('/', authenticateToken, upload.single('image'), async (req, res) => 
 });
 
 // Update product
-router.put('/:id', authenticateToken, upload.single('image'), async (req, res) => {
+router.put('/:id', authenticateToken, getTenantDb, closeTenantDb, upload.single('image'), async (req, res) => {
   try {
     const { name, price, category_id, description } = req.body;
     const productId = req.params.id;
@@ -120,7 +120,7 @@ router.put('/:id', authenticateToken, upload.single('image'), async (req, res) =
     if (req.file) {
       image = `/uploads/products/${req.file.filename}`;
       // Delete old image if exists
-      const oldProduct = await get('SELECT image FROM products WHERE id = ?', [productId]);
+      const oldProduct = await req.db.get('SELECT image FROM products WHERE id = ?', [productId]);
       if (oldProduct && oldProduct.image) {
         const oldImagePath = path.join(__dirname, '..', oldProduct.image);
         if (fs.existsSync(oldImagePath)) {
@@ -129,14 +129,14 @@ router.put('/:id', authenticateToken, upload.single('image'), async (req, res) =
       }
     }
 
-    await run(
+    await req.db.run(
       'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, updated_at = CURRENT_TIMESTAMP' + 
       (image ? ', image = ?' : '') + ' WHERE id = ?',
       image ? [name, parseFloat(price), category_id || null, description || null, image, productId] :
               [name, parseFloat(price), category_id || null, description || null, productId]
     );
 
-    const product = await get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [productId]);
+    const product = await req.db.get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [productId]);
 
     res.json(product);
   } catch (error) {
@@ -146,9 +146,9 @@ router.put('/:id', authenticateToken, upload.single('image'), async (req, res) =
 });
 
 // Delete product
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
-    const product = await get('SELECT image FROM products WHERE id = ?', [req.params.id]);
+    const product = await req.db.get('SELECT image FROM products WHERE id = ?', [req.params.id]);
     
     if (product && product.image) {
       const imagePath = path.join(__dirname, '..', product.image);
@@ -157,7 +157,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       }
     }
 
-    await run('DELETE FROM products WHERE id = ?', [req.params.id]);
+    await req.db.run('DELETE FROM products WHERE id = ?', [req.params.id]);
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {
     console.error('Delete product error:', error);

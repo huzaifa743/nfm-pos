@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../contexts/SettingsContext';
+import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -9,11 +10,13 @@ import {
   BarChart3,
   Users,
   Settings,
+  Building2,
   X
 } from 'lucide-react';
 
 export default function Sidebar({ isOpen, onToggle }) {
   const { t } = useTranslation();
+  const { user } = useAuth();
 
   const menuItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
@@ -24,6 +27,11 @@ export default function Sidebar({ isOpen, onToggle }) {
     { path: '/users', icon: Users, label: t('nav.users') },
     { path: '/settings', icon: Settings, label: t('nav.settings') },
   ];
+
+  // Add Tenants menu for super admin
+  if (user?.role === 'super_admin') {
+    menuItems.splice(6, 0, { path: '/tenants', icon: Building2, label: 'Tenants' });
+  }
 
 
   return (

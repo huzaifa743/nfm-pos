@@ -10,13 +10,14 @@ export default function Login() {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [tenantCode, setTenantCode] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
-    const result = await login(username, password);
+    const result = await login(username, password, tenantCode);
     setLoading(false);
 
     if (result.success) {
@@ -64,6 +65,22 @@ export default function Login() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tenant Code <span className="text-gray-500 text-xs">(Optional for super admin)</span>
+            </label>
+            <input
+              type="text"
+              value={tenantCode}
+              onChange={(e) => setTenantCode(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="Enter tenant code"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Leave empty if you're logging in as super admin
+            </p>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
@@ -74,9 +91,11 @@ export default function Login() {
         </form>
 
         <div className="mt-6 text-center text-sm text-gray-600">
-          <p>Default credentials:</p>
-          <p className="font-mono mt-1">Username: admin</p>
-          <p className="font-mono">Password: admin123</p>
+          <p className="font-semibold mb-2">Super Admin:</p>
+          <p className="font-mono text-xs">Username: superadmin</p>
+          <p className="font-mono text-xs">Password: superadmin123</p>
+          <p className="font-mono text-xs">Tenant Code: (leave empty)</p>
+          <p className="mt-4 text-xs text-gray-500">For restaurant owners, use credentials provided by super admin</p>
         </div>
       </div>
     </div>

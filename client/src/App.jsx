@@ -11,6 +11,7 @@ import SalesHistory from './pages/SalesHistory';
 import Reports from './pages/Reports';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
+import Tenants from './pages/Tenants';
 import Layout from './components/Layout';
 import LoadingScreen from './components/LoadingScreen';
 
@@ -48,13 +49,14 @@ function AppRoutes() {
         <Route path="reports" element={<Reports />} />
         <Route path="users" element={<Users />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="tenants" element={<Tenants />} />
       </Route>
     </Routes>
   );
 }
 
 function AppContent() {
-  const { settings, loading: settingsLoading } = useSettings();
+  const { settings, loading: settingsLoading, fetchSettings } = useSettings();
   const [showLoading, setShowLoading] = useState(true);
   const { user } = useAuth();
 
@@ -68,6 +70,13 @@ function AppContent() {
 
     return () => clearTimeout(timer);
   }, [settingsLoading]);
+
+  // Refetch settings when user logs in (to get tenant-specific settings)
+  useEffect(() => {
+    if (user?.tenant_code) {
+      fetchSettings(true, user.tenant_code);
+    }
+  }, [user?.tenant_code, fetchSettings]);
 
   // Keep-alive mechanism: Ping server every 2 minutes to prevent Render from spinning down
   // Render free tier spins down after 15 minutes of inactivity

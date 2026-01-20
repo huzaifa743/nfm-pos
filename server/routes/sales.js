@@ -1,12 +1,12 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const { query, run, get } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
+const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
 
 const router = express.Router();
 
 // Get all sales
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { start_date, end_date, search, payment_method } = req.query;
     
@@ -40,7 +40,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
     sql += ' ORDER BY s.created_at DESC';
 
-    const sales = await query(sql, params);
+    const sales = await req.db.query(sql, params);
     res.json(sales);
   } catch (error) {
     console.error('Get sales error:', error);
@@ -51,7 +51,7 @@ router.get('/', authenticateToken, async (req, res) => {
 // Get single sale with items
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    const sale = await get(
+    const sale = await req.db.get(
       `SELECT s.*, u.username as user_name, c.name as customer_name, c.phone as customer_phone, 
        c.email as customer_email, c.address as customer_address, c.city as customer_city, c.country as customer_country
        FROM sales s 
@@ -65,7 +65,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Sale not found' });
     }
 
-    const items = await query(
+    const items = await req.db.query(
       'SELECT si.*, p.image as product_image FROM sale_items si LEFT JOIN products p ON si.product_id = p.id WHERE si.sale_id = ?',
       [req.params.id]
     );
@@ -78,7 +78,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create sale
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const {
       customer_id,
@@ -125,7 +125,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
     // Create sale items
     for (const item of items) {
-      await run(
+      await req.db.run(
         'INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, total_price) VALUES (?, ?, ?, ?, ?, ?)',
         [
           saleResult.id,
@@ -139,11 +139,11 @@ router.post('/', authenticateToken, async (req, res) => {
 
       // Update product stock if needed
       if (item.product_id) {
-        await run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [item.quantity, item.product_id]);
+        await req.db.run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [item.quantity, item.product_id]);
       }
     }
 
-    const sale = await get(
+    const sale = await req.db.get(
       `SELECT s.*, u.username as user_name, c.name as customer_name 
        FROM sales s 
        LEFT JOIN users u ON s.user_id = u.id 

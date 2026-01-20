@@ -28,9 +28,13 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (username, password) => {
+  const login = async (username, password, tenantCode = '') => {
     try {
-      const response = await axios.post('/api/auth/login', { username, password });
+      const response = await axios.post('/api/auth/login', { 
+        username, 
+        password, 
+        tenant_code: tenantCode || undefined 
+      });
       const { token, user } = response.data;
 
       localStorage.setItem('token', token);

@@ -1,6 +1,6 @@
 const express = require('express');
-const { query } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
+const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
 
 const router = express.Router();
 
@@ -39,7 +39,7 @@ router.get('/sales', authenticateToken, async (req, res) => {
 
     sql += ' ORDER BY s.created_at DESC';
 
-    const sales = await query(sql, params);
+    const sales = await req.db.query(sql, params);
 
     // Calculate summary
     const summary = {
@@ -57,7 +57,7 @@ router.get('/sales', authenticateToken, async (req, res) => {
 });
 
 // Get product performance report
-router.get('/products', authenticateToken, async (req, res) => {
+router.get('/products', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
 
@@ -89,7 +89,7 @@ router.get('/products', authenticateToken, async (req, res) => {
     sql += ` GROUP BY p.id, p.name, p.price, c.name
              ORDER BY total_revenue DESC`;
 
-    const products = await query(sql, params);
+    const products = await req.db.query(sql, params);
     res.json(products);
   } catch (error) {
     console.error('Product report error:', error);

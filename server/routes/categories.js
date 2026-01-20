@@ -1,13 +1,13 @@
 const express = require('express');
-const { query, run, get } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
+const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
 
 const router = express.Router();
 
 // Get all categories
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
-    const categories = await query('SELECT * FROM categories ORDER BY name');
+    const categories = await req.db.query('SELECT * FROM categories ORDER BY name');
     res.json(categories);
   } catch (error) {
     console.error('Get categories error:', error);
@@ -16,9 +16,9 @@ router.get('/', async (req, res) => {
 });
 
 // Get single category
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
-    const category = await get('SELECT * FROM categories WHERE id = ?', [req.params.id]);
+    const category = await req.db.get('SELECT * FROM categories WHERE id = ?', [req.params.id]);
     if (!category) {
       return res.status(404).json({ error: 'Category not found' });
     }
@@ -30,7 +30,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create category
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { name, description } = req.body;
 
@@ -38,12 +38,12 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Category name is required' });
     }
 
-    const result = await run(
+    const result = await req.db.run(
       'INSERT INTO categories (name, description) VALUES (?, ?)',
       [name, description || null]
     );
 
-    const category = await get('SELECT * FROM categories WHERE id = ?', [result.id]);
+    const category = await req.db.get('SELECT * FROM categories WHERE id = ?', [result.id]);
     res.status(201).json(category);
   } catch (error) {
     if (error.message.includes('UNIQUE constraint')) {
@@ -55,16 +55,16 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Update category
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { name, description } = req.body;
 
-    await run(
+    await req.db.run(
       'UPDATE categories SET name = ?, description = ? WHERE id = ?',
       [name, description || null, req.params.id]
     );
 
-    const category = await get('SELECT * FROM categories WHERE id = ?', [req.params.id]);
+    const category = await req.db.get('SELECT * FROM categories WHERE id = ?', [req.params.id]);
     res.json(category);
   } catch (error) {
     if (error.message.includes('UNIQUE constraint')) {
@@ -76,15 +76,15 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete category
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     // Check if category has products
-    const products = await query('SELECT COUNT(*) as count FROM products WHERE category_id = ?', [req.params.id]);
+    const products = await req.db.query('SELECT COUNT(*) as count FROM products WHERE category_id = ?', [req.params.id]);
     if (products[0].count > 0) {
       return res.status(400).json({ error: 'Cannot delete category with existing products' });
     }
 
-    await run('DELETE FROM categories WHERE id = ?', [req.params.id]);
+    await req.db.run('DELETE FROM categories WHERE id = ?', [req.params.id]);
     res.json({ message: 'Category deleted successfully' });
   } catch (error) {
     console.error('Delete category error:', error);

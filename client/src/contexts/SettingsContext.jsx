@@ -27,7 +27,7 @@ export const SettingsProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const hasFetchedRef = useRef(false);
 
-  const fetchSettings = useCallback(async (force = false) => {
+  const fetchSettings = useCallback(async (force = false, tenantCode = null) => {
     // Prevent multiple simultaneous fetches
     if (hasFetchedRef.current && !force) return;
     
@@ -38,7 +38,21 @@ export const SettingsProvider = ({ children }) => {
     hasFetchedRef.current = true;
     setLoading(true);
     try {
-      const response = await api.get('/settings');
+      // Get tenant_code from localStorage if not provided
+      if (!tenantCode) {
+        const userData = localStorage.getItem('user');
+        if (userData) {
+          try {
+            const user = JSON.parse(userData);
+            tenantCode = user.tenant_code;
+          } catch (e) {
+            // Ignore parse errors
+          }
+        }
+      }
+
+      const url = tenantCode ? `/settings?tenant_code=${tenantCode}` : '/settings';
+      const response = await api.get(url);
       setSettings(prev => ({ ...prev, ...response.data }));
     } catch (error) {
       // Handle 401 and other errors gracefully

@@ -2,8 +2,9 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { query, run, get } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
+const { getTenantDatabase, createDbHelpers } = require('../tenantManager');
 
 const router = express.Router();
 
@@ -39,14 +40,44 @@ const upload = multer({
 
 // Get all settings (public - needed for UI before login)
 // Settings like restaurant name, logo, currency are public information
+// Supports tenant_code query parameter for tenant-specific settings
 router.get('/', async (req, res) => {
   try {
-    const settings = await query('SELECT * FROM settings');
-    const settingsObj = {};
-    settings.forEach(setting => {
-      settingsObj[setting.key] = setting.value;
+    const { tenant_code } = req.query;
+    
+    // If tenant_code provided, get tenant-specific settings
+    if (tenant_code) {
+      try {
+        const tenantDb = await getTenantDatabase(tenant_code);
+        const db = createDbHelpers(tenantDb);
+        const settings = await db.query('SELECT * FROM settings');
+        await db.close();
+        
+        const settingsObj = {};
+        settings.forEach(setting => {
+          settingsObj[setting.key] = setting.value;
+        });
+        return res.json(settingsObj);
+      } catch (error) {
+        // If tenant database doesn't exist, return empty/default settings
+        return res.json({
+          restaurant_name: 'Restaurant POS',
+          restaurant_logo: '',
+          currency: 'USD',
+          language: 'en',
+          vat_percentage: '0'
+        });
+      }
+    }
+    
+    // Default settings (for backward compatibility)
+    res.json({
+      restaurant_name: 'Restaurant POS',
+      restaurant_logo: '',
+      currency: 'USD',
+      language: 'en',
+      vat_percentage: '0'
     });
-    res.json(settingsObj);
   } catch (error) {
     console.error('Error fetching settings:', error);
     res.status(500).json({ error: 'Server error' });
@@ -54,7 +85,7 @@ router.get('/', async (req, res) => {
 });
 
 // Update settings
-router.put('/', authenticateToken, requireRole('admin'), upload.single('logo'), async (req, res) => {
+router.put('/', authenticateToken, requireRole('admin'), getTenantDb, closeTenantDb, upload.single('logo'), async (req, res) => {
   try {
     const settings = req.body;
 
@@ -63,7 +94,7 @@ router.put('/', authenticateToken, requireRole('admin'), upload.single('logo'), 
       const logoPath = `/uploads/settings/${req.file.filename}`;
       
       // Delete old logo if exists
-      const oldLogo = await get('SELECT value FROM settings WHERE key = ?', ['restaurant_logo']);
+      const oldLogo = await req.db.get('SELECT value FROM settings WHERE key = ?', ['restaurant_logo']);
       if (oldLogo && oldLogo.value) {
         const oldLogoPath = path.join(__dirname, '..', oldLogo.value);
         if (fs.existsSync(oldLogoPath)) {
@@ -71,7 +102,7 @@ router.put('/', authenticateToken, requireRole('admin'), upload.single('logo'), 
         }
       }
 
-      await run(
+      await req.db.run(
         'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
         ['restaurant_logo', logoPath]
       );
@@ -80,14 +111,14 @@ router.put('/', authenticateToken, requireRole('admin'), upload.single('logo'), 
     // Update other settings
     for (const [key, value] of Object.entries(settings)) {
       if (key !== 'logo') {
-        await run(
+        await req.db.run(
           'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
           [key, value || '']
         );
       }
     }
 
-    const allSettings = await query('SELECT * FROM settings');
+    const allSettings = await req.db.query('SELECT * FROM settings');
     const settingsObj = {};
     allSettings.forEach(setting => {
       settingsObj[setting.key] = setting.value;

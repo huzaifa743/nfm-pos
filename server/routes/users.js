@@ -1,14 +1,14 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { query, run, get } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
 
 const router = express.Router();
 
 // Get all users
-router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
+router.get('/', authenticateToken, requireRole('admin'), getTenantDb, closeTenantDb, async (req, res) => {
   try {
-    const users = await query('SELECT id, username, email, role, full_name, created_at FROM users ORDER BY created_at DESC');
+    const users = await req.db.query('SELECT id, username, email, role, full_name, created_at FROM users ORDER BY created_at DESC');
     res.json(users);
   } catch (error) {
     console.error('Get users error:', error);
@@ -17,9 +17,9 @@ router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
 });
 
 // Get single user
-router.get('/:id', authenticateToken, requireRole('admin'), async (req, res) => {
+router.get('/:id', authenticateToken, requireRole('admin'), getTenantDb, closeTenantDb, async (req, res) => {
   try {
-    const user = await get('SELECT id, username, email, role, full_name, created_at FROM users WHERE id = ?', [req.params.id]);
+    const user = await req.db.get('SELECT id, username, email, role, full_name, created_at FROM users WHERE id = ?', [req.params.id]);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -31,7 +31,7 @@ router.get('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
 });
 
 // Create user
-router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
+router.post('/', authenticateToken, requireRole('admin'), getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { username, email, password, full_name, role } = req.body;
 
@@ -46,7 +46,7 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
       [username, email, hashedPassword, full_name || null, role || 'cashier']
     );
 
-    const user = await get('SELECT id, username, email, role, full_name, created_at FROM users WHERE id = ?', [result.id]);
+    const user = await req.db.get('SELECT id, username, email, role, full_name, created_at FROM users WHERE id = ?', [result.id]);
     res.status(201).json(user);
   } catch (error) {
     if (error.message.includes('UNIQUE constraint')) {
@@ -58,24 +58,24 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
 });
 
 // Update user
-router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => {
+router.put('/:id', authenticateToken, requireRole('admin'), getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { username, email, password, full_name, role } = req.body;
 
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
-      await run(
+      await req.db.run(
         'UPDATE users SET username = ?, email = ?, password = ?, full_name = ?, role = ? WHERE id = ?',
         [username, email, hashedPassword, full_name || null, role, req.params.id]
       );
     } else {
-      await run(
+      await req.db.run(
         'UPDATE users SET username = ?, email = ?, full_name = ?, role = ? WHERE id = ?',
         [username, email, full_name || null, role, req.params.id]
       );
     }
 
-    const user = await get('SELECT id, username, email, role, full_name, created_at FROM users WHERE id = ?', [req.params.id]);
+    const user = await req.db.get('SELECT id, username, email, role, full_name, created_at FROM users WHERE id = ?', [req.params.id]);
     res.json(user);
   } catch (error) {
     if (error.message.includes('UNIQUE constraint')) {
@@ -87,13 +87,13 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
 });
 
 // Delete user
-router.delete('/:id', authenticateToken, requireRole('admin'), async (req, res) => {
+router.delete('/:id', authenticateToken, requireRole('admin'), getTenantDb, closeTenantDb, async (req, res) => {
   try {
     if (parseInt(req.params.id) === req.user.id) {
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
 
-    await run('DELETE FROM users WHERE id = ?', [req.params.id]);
+    await req.db.run('DELETE FROM users WHERE id = ?', [req.params.id]);
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Delete user error:', error);

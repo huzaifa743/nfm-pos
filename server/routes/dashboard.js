@@ -1,16 +1,16 @@
 const express = require('express');
-const { query, get } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
+const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
 
 const router = express.Router();
 
 // Get dashboard stats
-router.get('/stats', authenticateToken, async (req, res) => {
+router.get('/stats', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
 
     // Total Sales Today (count)
-    const salesToday = await get(
+    const salesToday = await req.db.get(
       'SELECT COUNT(*) as count FROM sales WHERE DATE(created_at) = ?',
       [today]
     );
@@ -22,10 +22,10 @@ router.get('/stats', authenticateToken, async (req, res) => {
     );
 
     // Total Products
-    const totalProducts = await get('SELECT COUNT(*) as count FROM products');
+    const totalProducts = await req.db.get('SELECT COUNT(*) as count FROM products');
 
     // Total Categories
-    const totalCategories = await get('SELECT COUNT(*) as count FROM categories');
+    const totalCategories = await req.db.get('SELECT COUNT(*) as count FROM categories');
 
     // Average Sale Value Today
     const avgSaleValue = await get(
@@ -34,7 +34,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
     );
 
     // High Selling Products (Top 5)
-    const topProducts = await query(
+    const topProducts = await req.db.query(
       `SELECT p.name, p.id, SUM(si.quantity) as total_quantity, SUM(si.total_price) as total_revenue
        FROM sale_items si
        JOIN products p ON si.product_id = p.id
@@ -61,7 +61,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
 });
 
 // Get chart data
-router.get('/charts', authenticateToken, async (req, res) => {
+router.get('/charts', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { period = '7' } = req.query; // days
     const days = parseInt(period);
@@ -77,7 +77,7 @@ router.get('/charts', authenticateToken, async (req, res) => {
     );
 
     // Revenue by payment method
-    const revenueByPayment = await query(
+    const revenueByPayment = await req.db.query(
       `SELECT payment_method, SUM(total) as total
        FROM sales
        WHERE DATE(created_at) >= DATE('now', '-' || ? || ' days')
@@ -86,7 +86,7 @@ router.get('/charts', authenticateToken, async (req, res) => {
     );
 
     // Top categories
-    const topCategories = await query(
+    const topCategories = await req.db.query(
       `SELECT c.name, SUM(si.total_price) as revenue, SUM(si.quantity) as quantity
        FROM sale_items si
        JOIN products p ON si.product_id = p.id
