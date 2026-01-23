@@ -5,7 +5,6 @@ const fs = require('fs');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
 const { preventDemoModifications } = require('../middleware/demoRestriction');
-const { preventDemoModifications } = require('../middleware/demoRestriction');
 const { getTenantDatabase, createDbHelpers } = require('../tenantManager');
 
 const router = express.Router();

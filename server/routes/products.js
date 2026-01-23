@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { authenticateToken } = require('../middleware/auth');
 const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
+const { preventDemoModifications } = require('../middleware/demoRestriction');
 
 const router = express.Router();
 
