@@ -7,18 +7,18 @@ const router = express.Router();
 // Get dashboard stats
 router.get('/stats', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    // Use SQLite's date functions to handle timezone correctly
+    // DATE('now') gets today's date in SQLite's local time
+    const todayCondition = "DATE(created_at) = DATE('now')";
 
     // Total Sales Today (count)
     const salesToday = await req.db.get(
-      'SELECT COUNT(*) as count FROM sales WHERE DATE(created_at) = ?',
-      [today]
+      `SELECT COUNT(*) as count FROM sales WHERE ${todayCondition}`
     );
 
     // Total Revenue Today
     const revenueToday = await req.db.get(
-      'SELECT COALESCE(SUM(total), 0) as total FROM sales WHERE DATE(created_at) = ?',
-      [today]
+      `SELECT COALESCE(SUM(total), 0) as total FROM sales WHERE ${todayCondition}`
     );
 
     // Total Products
@@ -29,8 +29,7 @@ router.get('/stats', authenticateToken, getTenantDb, closeTenantDb, async (req, 
 
     // Average Sale Value Today
     const avgSaleValue = await req.db.get(
-      'SELECT COALESCE(AVG(total), 0) as avg FROM sales WHERE DATE(created_at) = ?',
-      [today]
+      `SELECT COALESCE(AVG(total), 0) as avg FROM sales WHERE ${todayCondition}`
     );
 
     // High Selling Products (Top 5)
@@ -39,11 +38,10 @@ router.get('/stats', authenticateToken, getTenantDb, closeTenantDb, async (req, 
        FROM sale_items si
        JOIN products p ON si.product_id = p.id
        JOIN sales s ON si.sale_id = s.id
-       WHERE DATE(s.created_at) = ?
+       WHERE DATE(s.created_at) = DATE('now')
        GROUP BY p.id, p.name
        ORDER BY total_quantity DESC
-       LIMIT 5`,
-      [today]
+       LIMIT 5`
     );
 
     res.json({

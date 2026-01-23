@@ -11,12 +11,18 @@ import {
   Users,
   Settings,
   Building2,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
 
 export default function Sidebar({ isOpen, onToggle }) {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    window.location.href = '/login';
+  };
 
   const menuItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
@@ -78,13 +84,15 @@ export default function Sidebar({ isOpen, onToggle }) {
             })}
           </nav>
 
-          {/* Footer */}
+          {/* Footer with Logout */}
           <div className="p-4 border-t border-slate-700">
-            <p className="text-xs text-slate-400 text-center leading-relaxed">
-              Software By<br />
-              <span className="font-semibold text-slate-300">NFM Services and Solutions</span><br />
-              <span className="text-slate-400">0337-7249638</span>
-            </p>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors text-slate-300 hover:bg-slate-700 hover:text-white"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="font-medium text-sm">{t('common.logout')}</span>
+            </button>
           </div>
         </div>
       </aside>
