@@ -2,7 +2,6 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken } = require('../middleware/auth');
 const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
-const { preventDemoModifications } = require('../middleware/demoRestriction');
 
 const router = express.Router();
 
@@ -79,7 +78,7 @@ router.get('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, re
 });
 
 // Create sale
-router.post('/', authenticateToken, preventDemoModifications, getTenantDb, closeTenantDb, async (req, res) => {
+router.post('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const {
       customer_id,
