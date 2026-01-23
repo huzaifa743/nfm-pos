@@ -386,8 +386,8 @@ export const getReceiptPrintStyles = (paperSize = '80mm') => {
     
     .receipt-bill-number-line {
       text-align: center;
-      font-size: 9px;
-      font-weight: 600;
+      font-size: 13px;
+      font-weight: 700;
       margin: 0 0 3px 0;
       color: #000 !important;
       width: 100%;
@@ -401,10 +401,10 @@ export const getReceiptPrintStyles = (paperSize = '80mm') => {
     
     .receipt-bill-date-wrapper {
       text-align: center;
-      font-size: 9px;
+      font-size: 13px;
       margin: 0 0 4px 0;
       color: #000 !important;
-      font-weight: 600;
+      font-weight: 700;
       width: 100%;
       box-sizing: border-box;
       padding: 0 3px;

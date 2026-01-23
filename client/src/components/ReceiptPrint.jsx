@@ -185,15 +185,10 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
               <div className="receipt-divider"></div>
             </div>
 
-            {/* Order Type and Bill Information - Combined for better wrapping */}
-            {sale.order_type && (
-              <div className="receipt-order-type-wrapper">
-                <div className="receipt-order-type">
-                  {formatOrderType(sale.order_type)}:-
-                </div>
-                <div className="receipt-bill-number-line">{formatBillNumber(sale.sale_number)}</div>
-              </div>
-            )}
+            {/* Bill Information */}
+            <div className="receipt-order-type-wrapper">
+              <div className="receipt-bill-number-line">{formatBillNumber(sale.sale_number)}</div>
+            </div>
 
             {/* Bill Date */}
             <div className="receipt-bill-date-wrapper">

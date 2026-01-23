@@ -8,7 +8,7 @@ async function setupDemoTenant() {
     await ensureInitialized();
     console.log('✅ Master database ready');
     const tenantCode = 'DEMO';
-    const restaurantName = 'Demo Restaurant';
+    const restaurantName = 'Demo Pos';
     const ownerName = 'Demo Owner';
     const ownerEmail = 'demo@restaurant.com';
     const ownerPhone = '+1234567890';
