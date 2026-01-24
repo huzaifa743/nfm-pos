@@ -16,17 +16,25 @@ setTimeout(() => {
       // Ensure database is initialized
       await ensureInitialized();
       
-      // Check if super admin exists, create if missing
+      // Check if super admin exists, auto-create if missing
       try {
         const superAdmin = await masterDbHelpers.get('SELECT * FROM super_admins LIMIT 1');
         if (!superAdmin) {
-          console.log('\n⚠️  Super admin not found!');
-          console.log('⚠️  Run: npm run setup-super-admin (or it will be created on first super admin login attempt)\n');
+          console.log('\n⚠️  Super admin not found. Auto-creating...');
+          const { autoSetupSuperAdmin } = require('./autoSetupSuperAdmin');
+          const result = await autoSetupSuperAdmin();
+          if (result.success) {
+            console.log('✅ Super admin auto-created. Login with tenant code empty (default: superadmin / superadmin123)');
+          } else {
+            console.log('⚠️  Auto-setup failed:', result.error);
+            console.log('   Run manually: npm run setup-super-admin\n');
+          }
         } else {
           console.log('✅ Super admin account found');
         }
       } catch (err) {
-        console.log('⚠️  Could not check super admin:', err.message);
+        console.log('⚠️  Could not check/create super admin:', err.message);
+        console.log('   Run manually: npm run setup-super-admin');
       }
       
       // Auto-create or update demo tenant
