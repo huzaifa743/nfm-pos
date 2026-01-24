@@ -128,6 +128,7 @@ function createTenantDatabase(tenantCode) {
           image TEXT,
           description TEXT,
           stock_quantity INTEGER DEFAULT 0,
+          expiry_date TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (category_id) REFERENCES categories(id)

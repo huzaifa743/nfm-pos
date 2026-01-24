@@ -25,6 +25,8 @@ export default function Inventory() {
     category_id: '',
     description: '',
     image: null,
+    add_expiry_date: false,
+    expiry_date: '',
   });
 
   const [categoryForm, setCategoryForm] = useState({
@@ -80,6 +82,7 @@ export default function Inventory() {
       if (productForm.image) {
         formData.append('image', productForm.image);
       }
+      formData.append('expiry_date', productForm.add_expiry_date && productForm.expiry_date ? productForm.expiry_date : '');
 
       if (editingProduct) {
         await api.put(`/products/${editingProduct.id}`, formData, {
@@ -101,6 +104,8 @@ export default function Inventory() {
         category_id: '',
         description: '',
         image: null,
+        add_expiry_date: false,
+        expiry_date: '',
       });
       fetchProducts();
     } catch (error) {
@@ -142,6 +147,8 @@ export default function Inventory() {
       category_id: product.category_id || '',
       description: product.description || '',
       image: null,
+      add_expiry_date: !!product.expiry_date,
+      expiry_date: product.expiry_date || '',
     });
     setShowProductModal(true);
   };
@@ -183,6 +190,8 @@ export default function Inventory() {
                 description: '',
                 stock_quantity: 0,
                 image: null,
+                add_expiry_date: false,
+                expiry_date: '',
               });
               setShowProductModal(true);
             }}
@@ -239,6 +248,9 @@ export default function Inventory() {
                     Category
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Expiry Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {t('inventory.productPrice')}
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -274,6 +286,9 @@ export default function Inventory() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {product.category_name || 'Uncategorized'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.expiry_date ? new Date(product.expiry_date + 'T12:00:00').toLocaleDateString() : '—'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                       {formatCurrency(product.price)}
@@ -314,6 +329,15 @@ export default function Inventory() {
                 onClick={() => {
                   setShowProductModal(false);
                   setEditingProduct(null);
+                  setProductForm({
+                    name: '',
+                    price: '',
+                    category_id: '',
+                    description: '',
+                    image: null,
+                    add_expiry_date: false,
+                    expiry_date: '',
+                  });
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -404,12 +428,54 @@ export default function Inventory() {
                 />
               </div>
 
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={productForm.add_expiry_date}
+                    onChange={(e) =>
+                      setProductForm({
+                        ...productForm,
+                        add_expiry_date: e.target.checked,
+                        ...(e.target.checked ? {} : { expiry_date: '' }),
+                      })
+                    }
+                    className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Add Expiry Date</span>
+                </label>
+                {productForm.add_expiry_date && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Expiry Date
+                    </label>
+                    <input
+                      type="date"
+                      value={productForm.expiry_date}
+                      onChange={(e) =>
+                        setProductForm({ ...productForm, expiry_date: e.target.value })
+                      }
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={() => {
                     setShowProductModal(false);
                     setEditingProduct(null);
+                    setProductForm({
+                      name: '',
+                      price: '',
+                      category_id: '',
+                      description: '',
+                      image: null,
+                      add_expiry_date: false,
+                      expiry_date: '',
+                    });
                   }}
                   className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                 >
