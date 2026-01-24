@@ -6,6 +6,8 @@
 
 ### Option A: Railway (recommended)
 
+**→ For a full walkthrough with your Railway UI, see [RAILWAY_VOLUME_GUIDE.md](./RAILWAY_VOLUME_GUIDE.md).**
+
 1. **Open your Railway project** → select your **backend/service** (the one that runs the Node server).
 
 2. **Create a volume**
@@ -14,8 +16,7 @@
    - Create a new **Volume** and note the **mount path** you choose (e.g. `/data`).
 
 3. **Attach the volume to your service**
-   - In the service, open **Settings** (or **Volumes**).
-   - **Add Volume** → select the volume you created.
+   - In the service, open **Settings** → **Volumes** (or **Storage**). Click **Add Volume** → select the volume.
    - Set **Mount Path** to `/data` (or e.g. `/app/data` if you use a different layout).
    - Save.
 

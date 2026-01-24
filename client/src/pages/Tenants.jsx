@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/api';
 import toast from 'react-hot-toast';
-import { Plus, Edit, Trash2, Building2, Copy, Check } from 'lucide-react';
+import { Plus, Edit, Trash2, Building2, Copy, Check, Search } from 'lucide-react';
 
 export default function Tenants() {
   const { user } = useAuth();
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingTenant, setEditingTenant] = useState(null);
   const [copiedCode, setCopiedCode] = useState(null);
@@ -125,6 +126,18 @@ export default function Tenants() {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
+  const q = searchQuery.trim().toLowerCase();
+  const filteredTenants = q
+    ? tenants.filter(
+        (t) =>
+          (t.restaurant_name || '').toLowerCase().includes(q) ||
+          (t.owner_name || '').toLowerCase().includes(q) ||
+          (t.owner_email || '').toLowerCase().includes(q) ||
+          (t.tenant_code || '').toLowerCase().includes(q) ||
+          (t.username || '').toLowerCase().includes(q)
+      )
+    : tenants;
+
   if (user?.role !== 'super_admin') {
     return (
       <div className="flex items-center justify-center h-64">
@@ -148,99 +161,125 @@ export default function Tenants() {
           <Building2 className="w-8 h-8 text-primary-600" />
           <h1 className="text-3xl font-bold text-gray-800">Tenant Management</h1>
         </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Create Tenant
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search tenants..."
+              className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+          <button
+            onClick={() => {
+              resetForm();
+              setShowModal(true);
+            }}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Create Tenant
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Business</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Owner</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant Code</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {tenants.map((tenant) => (
-              <tr key={tenant.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{tenant.restaurant_name}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{tenant.owner_name}</div>
-                  <div className="text-sm text-gray-500">{tenant.owner_email}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <code className="text-xs bg-gray-100 px-2 py-1 rounded">{tenant.tenant_code}</code>
-                    <button
-                      onClick={() => copyToClipboard(tenant.tenant_code)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      {copiedCode === tenant.tenant_code ? (
-                        <Check className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tenant.username}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      tenant.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
-                    }`}>
-                      {tenant.status}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleStatusToggle(tenant)}
-                      className="text-xs text-primary-600 hover:text-primary-800 font-medium"
-                      title={tenant.status === 'active' ? 'Set inactive (block login)' : 'Set active (allow login)'}
-                    >
-                      {tenant.status === 'active' ? 'Deactivate' : 'Activate'}
-                    </button>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEdit(tenant)}
-                      className="text-primary-600 hover:text-primary-900"
-                    >
-                      <Edit className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(tenant.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
         {tenants.length === 0 && (
           <div className="text-center py-12">
             <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-500">No tenants yet. Create your first tenant to get started.</p>
           </div>
+        )}
+        {tenants.length > 0 && filteredTenants.length === 0 && (
+          <div className="text-center py-12">
+            <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500">No tenants match &quot;{searchQuery}&quot;.</p>
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="mt-2 text-sm text-primary-600 hover:text-primary-700 font-medium"
+            >
+              Clear search
+            </button>
+          </div>
+        )}
+        {filteredTenants.length > 0 && (
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Business</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Owner</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant Code</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredTenants.map((tenant) => (
+                <tr key={tenant.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{tenant.restaurant_name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{tenant.owner_name}</div>
+                    <div className="text-sm text-gray-500">{tenant.owner_email}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <code className="text-xs bg-gray-100 px-2 py-1 rounded">{tenant.tenant_code}</code>
+                      <button
+                        onClick={() => copyToClipboard(tenant.tenant_code)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        {copiedCode === tenant.tenant_code ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tenant.username}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        tenant.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {tenant.status}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleStatusToggle(tenant)}
+                        className="text-xs text-primary-600 hover:text-primary-800 font-medium"
+                        title={tenant.status === 'active' ? 'Set inactive (block login)' : 'Set active (allow login)'}
+                      >
+                        {tenant.status === 'active' ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEdit(tenant)}
+                        className="text-primary-600 hover:text-primary-900"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(tenant.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
