@@ -1,12 +1,12 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
-const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
+const { getTenantDb, closeTenantDb, requireTenant } = require('../middleware/tenant');
 const { preventDemoModifications } = require('../middleware/demoRestriction');
 
 const router = express.Router();
 
 // Get all categories
-router.get('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
+router.get('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const categories = await req.db.query('SELECT * FROM categories ORDER BY name');
     res.json(categories);
@@ -17,7 +17,7 @@ router.get('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) 
 });
 
 // Get single category
-router.get('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
+router.get('/:id', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const category = await req.db.get('SELECT * FROM categories WHERE id = ?', [req.params.id]);
     if (!category) {
@@ -31,7 +31,7 @@ router.get('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, re
 });
 
 // Create category
-router.post('/', authenticateToken, preventDemoModifications, getTenantDb, closeTenantDb, async (req, res) => {
+router.post('/', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { name, description } = req.body;
 
@@ -56,7 +56,7 @@ router.post('/', authenticateToken, preventDemoModifications, getTenantDb, close
 });
 
 // Update category
-router.put('/:id', authenticateToken, preventDemoModifications, getTenantDb, closeTenantDb, async (req, res) => {
+router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { name, description } = req.body;
 
@@ -77,7 +77,7 @@ router.put('/:id', authenticateToken, preventDemoModifications, getTenantDb, clo
 });
 
 // Delete category
-router.delete('/:id', authenticateToken, preventDemoModifications, getTenantDb, closeTenantDb, async (req, res) => {
+router.delete('/:id', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     // Check if category has products
     const products = await req.db.query('SELECT COUNT(*) as count FROM products WHERE category_id = ?', [req.params.id]);

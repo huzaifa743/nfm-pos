@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { authenticateToken } = require('../middleware/auth');
-const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
+const { getTenantDb, closeTenantDb, requireTenant } = require('../middleware/tenant');
 const { preventDemoModifications } = require('../middleware/demoRestriction');
 
 const router = express.Router();
@@ -51,7 +51,7 @@ const upload = multer({
 });
 
 // Get all products
-router.get('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
+router.get('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const tenantCode = req.user?.tenant_code;
     if (tenantCode) await ensureExpiryDateColumn(req.db, tenantCode);
@@ -82,7 +82,7 @@ router.get('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) 
 });
 
 // Get single product
-router.get('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
+router.get('/:id', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const tenantCode = req.user?.tenant_code;
     if (tenantCode) await ensureExpiryDateColumn(req.db, tenantCode);
@@ -104,7 +104,7 @@ router.get('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, re
 });
 
 // Create product
-router.post('/', authenticateToken, preventDemoModifications, getTenantDb, closeTenantDb, upload.single('image'), async (req, res) => {
+router.post('/', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, upload.single('image'), async (req, res) => {
   try {
     const tenantCode = req.user?.tenant_code;
     if (tenantCode) await ensureExpiryDateColumn(req.db, tenantCode);
@@ -133,7 +133,7 @@ router.post('/', authenticateToken, preventDemoModifications, getTenantDb, close
 });
 
 // Update product
-router.put('/:id', authenticateToken, preventDemoModifications, getTenantDb, closeTenantDb, upload.single('image'), async (req, res) => {
+router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, upload.single('image'), async (req, res) => {
   try {
     const tenantCode = req.user?.tenant_code;
     if (tenantCode) await ensureExpiryDateColumn(req.db, tenantCode);
@@ -173,7 +173,7 @@ router.put('/:id', authenticateToken, preventDemoModifications, getTenantDb, clo
 });
 
 // Delete product
-router.delete('/:id', authenticateToken, preventDemoModifications, getTenantDb, closeTenantDb, async (req, res) => {
+router.delete('/:id', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const product = await req.db.get('SELECT image FROM products WHERE id = ?', [req.params.id]);
     

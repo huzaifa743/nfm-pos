@@ -1,14 +1,21 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation, Navigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
 export default function Layout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user } = useAuth();
+  const location = useLocation();
 
   const handleMenuToggle = () => {
     setIsMenuOpen(!isMenuOpen);
   };
+
+  if (user?.role === 'super_admin' && !location.pathname.startsWith('/tenants')) {
+    return <Navigate to="/tenants" replace />;
+  }
 
   return (
     <div className="fixed inset-0 flex bg-gray-50">

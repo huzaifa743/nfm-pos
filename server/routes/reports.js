@@ -1,11 +1,11 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
-const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
+const { getTenantDb, closeTenantDb, requireTenant } = require('../middleware/tenant');
 
 const router = express.Router();
 
 // Get sales report
-router.get('/sales', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
+router.get('/sales', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { start_date, end_date, payment_method, order_type } = req.query;
 
@@ -57,7 +57,7 @@ router.get('/sales', authenticateToken, getTenantDb, closeTenantDb, async (req, 
 });
 
 // Get product performance report
-router.get('/products', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
+router.get('/products', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
 

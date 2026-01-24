@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { authenticateToken, requireRole } = require('../middleware/auth');
-const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
+const { getTenantDb, closeTenantDb, requireTenant } = require('../middleware/tenant');
 const { preventDemoModifications } = require('../middleware/demoRestriction');
 const { getTenantDatabase, createDbHelpers } = require('../tenantManager');
 
@@ -86,7 +86,7 @@ router.get('/', async (req, res) => {
 });
 
 // Update settings
-router.put('/', authenticateToken, requireRole('admin'), preventDemoModifications, getTenantDb, closeTenantDb, upload.single('logo'), async (req, res) => {
+router.put('/', authenticateToken, requireRole('admin'), preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, upload.single('logo'), async (req, res) => {
   try {
     const settings = req.body;
 

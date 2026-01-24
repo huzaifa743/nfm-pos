@@ -1,12 +1,12 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken } = require('../middleware/auth');
-const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
+const { getTenantDb, closeTenantDb, requireTenant } = require('../middleware/tenant');
 
 const router = express.Router();
 
 // Get all sales
-router.get('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
+router.get('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { start_date, end_date, search, payment_method } = req.query;
     
@@ -49,7 +49,7 @@ router.get('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) 
 });
 
 // Get single sale with items
-router.get('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
+router.get('/:id', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const sale = await req.db.get(
       `SELECT s.*, u.username as user_name, c.name as customer_name, c.phone as customer_phone, 
@@ -78,7 +78,7 @@ router.get('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, re
 });
 
 // Create sale
-router.post('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
+router.post('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const {
       customer_id,

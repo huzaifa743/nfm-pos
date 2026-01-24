@@ -1,13 +1,13 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { authenticateToken, requireRole } = require('../middleware/auth');
-const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
+const { getTenantDb, closeTenantDb, requireTenant } = require('../middleware/tenant');
 const { preventDemoModifications } = require('../middleware/demoRestriction');
 
 const router = express.Router();
 
 // Get all users
-router.get('/', authenticateToken, requireRole('admin'), getTenantDb, closeTenantDb, async (req, res) => {
+router.get('/', authenticateToken, requireRole('admin'), requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const users = await req.db.query('SELECT id, username, email, role, full_name, created_at FROM users ORDER BY created_at DESC');
     res.json(users);
@@ -32,7 +32,7 @@ router.get('/:id', authenticateToken, requireRole('admin'), getTenantDb, closeTe
 });
 
 // Create user
-router.post('/', authenticateToken, requireRole('admin'), preventDemoModifications, getTenantDb, closeTenantDb, async (req, res) => {
+router.post('/', authenticateToken, requireRole('admin'), preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { username, email, password, full_name, role } = req.body;
 
@@ -59,7 +59,7 @@ router.post('/', authenticateToken, requireRole('admin'), preventDemoModificatio
 });
 
 // Update user
-router.put('/:id', authenticateToken, requireRole('admin'), preventDemoModifications, getTenantDb, closeTenantDb, async (req, res) => {
+router.put('/:id', authenticateToken, requireRole('admin'), preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { username, email, password, full_name, role } = req.body;
 
@@ -88,7 +88,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), preventDemoModificat
 });
 
 // Delete user
-router.delete('/:id', authenticateToken, requireRole('admin'), preventDemoModifications, getTenantDb, closeTenantDb, async (req, res) => {
+router.delete('/:id', authenticateToken, requireRole('admin'), preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     if (parseInt(req.params.id) === req.user.id) {
       return res.status(400).json({ error: 'Cannot delete your own account' });

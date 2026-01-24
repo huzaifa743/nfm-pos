@@ -1,12 +1,12 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
-const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
+const { getTenantDb, closeTenantDb, requireTenant } = require('../middleware/tenant');
 const { preventDemoModifications } = require('../middleware/demoRestriction');
 
 const router = express.Router();
 
 // Get all customers
-router.get('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
+router.get('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { search } = req.query;
     let sql = 'SELECT * FROM customers WHERE 1=1';
@@ -29,7 +29,7 @@ router.get('/', authenticateToken, getTenantDb, closeTenantDb, async (req, res) 
 });
 
 // Get single customer
-router.get('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
+router.get('/:id', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const customer = await req.db.get('SELECT * FROM customers WHERE id = ?', [req.params.id]);
     if (!customer) {
@@ -43,7 +43,7 @@ router.get('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, re
 });
 
 // Create customer
-router.post('/', authenticateToken, preventDemoModifications, getTenantDb, closeTenantDb, async (req, res) => {
+router.post('/', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { name, phone, email, country, city, address } = req.body;
 
@@ -65,7 +65,7 @@ router.post('/', authenticateToken, preventDemoModifications, getTenantDb, close
 });
 
 // Update customer
-router.put('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
+router.put('/:id', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { name, phone, email, country, city, address } = req.body;
 
@@ -83,7 +83,7 @@ router.put('/:id', authenticateToken, getTenantDb, closeTenantDb, async (req, re
 });
 
 // Delete customer
-router.delete('/:id', authenticateToken, preventDemoModifications, getTenantDb, closeTenantDb, async (req, res) => {
+router.delete('/:id', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     await req.db.run('DELETE FROM customers WHERE id = ?', [req.params.id]);
     res.json({ message: 'Customer deleted successfully' });

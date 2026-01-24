@@ -1,13 +1,18 @@
 const { getTenantDatabase, createDbHelpers } = require('../tenantManager');
 
+// Block super admin from tenant-scoped routes (they use /tenants only). Prevents 500s from req.db being undefined.
+const requireTenant = (req, res, next) => {
+  if (req.user && req.user.role === 'super_admin') {
+    return res.status(403).json({
+      error: 'Tenant context required. Super admin can only access the Tenants page.'
+    });
+  }
+  next();
+};
+
 // Middleware to get tenant database based on user's tenant_id
 const getTenantDb = async (req, res, next) => {
   try {
-    // Skip for super admin (they don't use tenant database)
-    if (req.user && req.user.role === 'super_admin') {
-      return next();
-    }
-
     if (!req.user || !req.user.tenant_code) {
       return res.status(401).json({ error: 'Tenant information required' });
     }
@@ -34,4 +39,4 @@ const closeTenantDb = (req, res, next) => {
   next();
 };
 
-module.exports = { getTenantDb, closeTenantDb };
+module.exports = { getTenantDb, closeTenantDb, requireTenant };

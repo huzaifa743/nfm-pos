@@ -1,11 +1,11 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
-const { getTenantDb, closeTenantDb } = require('../middleware/tenant');
+const { getTenantDb, closeTenantDb, requireTenant } = require('../middleware/tenant');
 
 const router = express.Router();
 
 // Get dashboard stats
-router.get('/stats', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
+router.get('/stats', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     // Use SQLite's date functions to handle timezone correctly
     // DATE('now') gets today's date in SQLite's local time
@@ -59,7 +59,7 @@ router.get('/stats', authenticateToken, getTenantDb, closeTenantDb, async (req, 
 });
 
 // Get chart data
-router.get('/charts', authenticateToken, getTenantDb, closeTenantDb, async (req, res) => {
+router.get('/charts', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const { period = '7' } = req.query; // days
     const days = parseInt(period);

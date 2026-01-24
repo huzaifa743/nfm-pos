@@ -29,6 +29,11 @@ function PrivateRoute({ children }) {
   return user ? children : <Navigate to="/login" />;
 }
 
+function IndexRedirect() {
+  const { user } = useAuth();
+  return <Navigate to={user?.role === 'super_admin' ? '/tenants' : '/dashboard'} replace />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -41,7 +46,7 @@ function AppRoutes() {
           </PrivateRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route index element={<IndexRedirect />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="billing" element={<Billing />} />
         <Route path="inventory" element={<Inventory />} />

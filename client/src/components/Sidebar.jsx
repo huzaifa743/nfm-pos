@@ -24,20 +24,17 @@ export default function Sidebar({ isOpen, onToggle }) {
     window.location.href = '/login';
   };
 
-  const menuItems = [
-    { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
-    { path: '/billing', icon: ShoppingCart, label: t('nav.billing') },
-    { path: '/inventory', icon: Package, label: t('nav.inventory') },
-    { path: '/sales-history', icon: History, label: t('nav.salesHistory') },
-    { path: '/reports', icon: BarChart3, label: t('nav.reports') },
-    { path: '/users', icon: Users, label: t('nav.users') },
-    { path: '/settings', icon: Settings, label: t('nav.settings') },
-  ];
-
-  // Add Tenants menu for super admin
-  if (user?.role === 'super_admin') {
-    menuItems.splice(6, 0, { path: '/tenants', icon: Building2, label: 'Tenants' });
-  }
+  const menuItems = user?.role === 'super_admin'
+    ? [{ path: '/tenants', icon: Building2, label: 'Tenants' }]
+    : [
+        { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
+        { path: '/billing', icon: ShoppingCart, label: t('nav.billing') },
+        { path: '/inventory', icon: Package, label: t('nav.inventory') },
+        { path: '/sales-history', icon: History, label: t('nav.salesHistory') },
+        { path: '/reports', icon: BarChart3, label: t('nav.reports') },
+        { path: '/users', icon: Users, label: t('nav.users') },
+        { path: '/settings', icon: Settings, label: t('nav.settings') },
+      ];
 
 
   return (
