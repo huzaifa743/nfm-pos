@@ -40,7 +40,7 @@ const upload = multer({
 });
 
 // Get all settings (public - needed for UI before login)
-// Settings like restaurant name, logo, currency are public information
+// Settings like business name, logo, currency are public information
 // Supports tenant_code query parameter for tenant-specific settings
 router.get('/', async (req, res) => {
   try {

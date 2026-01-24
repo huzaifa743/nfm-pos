@@ -20,8 +20,8 @@ async function autoSetupDemoTenant() {
         const tenantDb = await getTenantDatabase(tenantCode);
         const db = createDbHelpers(tenantDb);
         
-        // Update settings for demo restaurant
-        console.log('⚙️  Updating demo restaurant settings...');
+        // Update settings for demo POS
+        console.log('⚙️  Updating demo POS settings...');
         await db.run('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)', ['restaurant_name', restaurantName]);
         await db.close();
         console.log('   ✅ Settings updated to DEMO POS');
@@ -308,8 +308,8 @@ async function autoSetupDemoTenant() {
       console.log(`   ✅ Created sale ${saleNumber}: $${total.toFixed(2)}`);
     }
 
-    // Update settings for demo restaurant
-    console.log('⚙️  Configuring demo restaurant settings...');
+    // Update settings for demo POS
+    console.log('⚙️  Configuring demo POS settings...');
     await db.run('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)', ['restaurant_name', restaurantName]);
     await db.run('UPDATE settings SET value = ? WHERE key = ?', ['123 Demo Street, Demo City, DC 12345', 'restaurant_address']);
     await db.run('UPDATE settings SET value = ? WHERE key = ?', ['+1 (555) 123-4567', 'restaurant_phone']);

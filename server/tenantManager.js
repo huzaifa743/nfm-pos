@@ -44,7 +44,7 @@ function initializeMasterDatabase() {
         }
       });
 
-      // Tenants table - stores information about each restaurant/tenant
+      // Tenants table - stores information about each business/tenant
       masterDb.run(`CREATE TABLE IF NOT EXISTS tenants (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         tenant_code TEXT UNIQUE NOT NULL,
@@ -205,7 +205,7 @@ function createTenantDatabase(tenantCode) {
 
           // Insert default settings
           const defaultSettings = [
-            ['restaurant_name', 'My Restaurant'],
+            ['restaurant_name', 'My POS'],
             ['restaurant_logo', ''],
             ['vat_percentage', '0'],
             ['currency', 'USD'],

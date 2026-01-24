@@ -25,7 +25,7 @@
 - **5 Customers**: Sample customer records
 - **5 Sample Sales**: Completed transactions with different payment methods
 - **1 Cashier User**: Additional user account for testing
-- **Settings**: Pre-configured restaurant information
+- **Settings**: Pre-configured POS/business information
 
 ### 4. Updated Login Page
 - **File**: `client/src/pages/Login.jsx`
@@ -113,7 +113,7 @@ With the demo account, users can test:
    - Analyze sales data
 
 5. **Settings**
-   - View restaurant settings
+   - View POS settings
    - See pre-configured information
 
 ---

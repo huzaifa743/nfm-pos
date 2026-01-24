@@ -171,7 +171,7 @@ function initializeDatabase() {
       }
       
       // After settings table is created, insert default settings
-      db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('restaurant_name', 'My Restaurant')`, (err) => {
+      db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('restaurant_name', 'My POS')`, (err) => {
         if (err) console.error('Error inserting restaurant_name:', err);
       });
       db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('restaurant_logo', '')`, (err) => {

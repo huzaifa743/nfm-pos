@@ -59,7 +59,7 @@ router.post('/', authenticateToken, requireRole('super_admin'), async (req, res)
         [username, owner_email, hashedPassword, 'admin', owner_name]
       );
 
-      // Update restaurant name in settings
+      // Update business name in settings
       await db.run(
         'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
         ['restaurant_name', restaurant_name]

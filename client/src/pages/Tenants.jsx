@@ -150,7 +150,7 @@ export default function Tenants() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Restaurant</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Business</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Owner</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant Code</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
@@ -231,7 +231,7 @@ export default function Tenants() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Restaurant Name *
+                  Business Name *
                 </label>
                 <input
                   type="text"
@@ -316,7 +316,7 @@ export default function Tenants() {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <p className="text-sm text-blue-800">
                     <strong>Note:</strong> A unique tenant code will be generated automatically. 
-                    Share the tenant code with the restaurant owner for login.
+                    Share the tenant code with the business owner for login.
                   </p>
                 </div>
               )}

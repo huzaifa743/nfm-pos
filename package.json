@@ -1,7 +1,7 @@
 {
   "name": "restaurant-pos",
   "version": "1.0.0",
-  "description": "Professional Point of Sale System for Restaurant",
+  "description": "Professional Point of Sale (POS) System",
   "main": "server/index.js",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",

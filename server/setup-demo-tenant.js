@@ -338,8 +338,8 @@ async function setupDemoTenant() {
       console.log(`   ✅ Created sale ${saleNumber}: $${total.toFixed(2)}`);
     }
 
-    // Update settings for demo restaurant
-    console.log('\n⚙️  Configuring demo restaurant settings...');
+    // Update settings for demo POS
+    console.log('\n⚙️  Configuring demo POS settings...');
     await db.run(
       'UPDATE settings SET value = ? WHERE key = ?',
       [restaurantName, 'restaurant_name']

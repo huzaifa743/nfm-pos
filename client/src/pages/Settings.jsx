@@ -149,7 +149,7 @@ export default function Settings() {
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
-        {/* Restaurant Information */}
+        {/* Business Information */}
         <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
           <div className="flex items-center gap-3 mb-6">
             <Building2 className="w-6 h-6 text-primary-600" />

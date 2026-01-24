@@ -23,7 +23,7 @@ Press `Windows Key + X` → Select "Windows PowerShell" or "Terminal"
 #### **Step 2: Navigate to Project**
 
 ```powershell
-cd "c:\Users\Huzaifa Usman\Desktop\Point of sale for Resturant"
+cd "c:\Users\Huzaifa Usman\Desktop\Point of sale for Restaurant"
 ```
 
 **Tip**: You can also right-click the folder → "Open in Terminal"
@@ -112,7 +112,7 @@ Shows your last 5 commits.
 
 ```powershell
 # 1. Go to project folder
-cd "c:\Users\Huzaifa Usman\Desktop\Point of sale for Resturant"
+cd "c:\Users\Huzaifa Usman\Desktop\Point of sale for Restaurant"
 
 # 2. Check what changed
 git status
@@ -211,7 +211,7 @@ Untracked files:
 **Problem**: Not in the project directory
 **Solution**:
 ```powershell
-cd "c:\Users\Huzaifa Usman\Desktop\Point of sale for Resturant"
+cd "c:\Users\Huzaifa Usman\Desktop\Point of sale for Restaurant"
 ```
 
 ### Issue 2: "Updates were rejected"
