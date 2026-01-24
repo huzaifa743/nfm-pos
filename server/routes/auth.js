@@ -72,6 +72,14 @@ router.post('/login', async (req, res) => {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
+      // First-time owner login: set tenant status to active
+      if (tenant.status === 'inactive') {
+        await masterDbHelpers.run(
+          "UPDATE tenants SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE tenant_code = ?",
+          [tenant.tenant_code]
+        );
+      }
+
       const token = jwt.sign(
         {
           id: tenant.id,

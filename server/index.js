@@ -9,11 +9,13 @@ const { masterDbHelpers, ensureInitialized } = require('./tenantManager');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Auto-setup on first run (non-blocking, runs after server starts)
+// Auto-setup on first run (non-blocking, runs after server starts).
+// We never delete tenants on startup. Only create demo/superadmin if missing.
+// Tenants are deleted only when super admin explicitly deletes via API.
+// Set DATA_DIR (e.g. to a Railway volume path) so tenants persist across redeploys.
 setTimeout(() => {
   (async () => {
     try {
-      // Ensure database is initialized
       await ensureInitialized();
       
       // Check if super admin exists, auto-create if missing

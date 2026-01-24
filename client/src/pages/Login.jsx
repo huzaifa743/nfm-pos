@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ShoppingCart } from 'lucide-react';
@@ -6,20 +6,34 @@ import { useTranslation } from 'react-i18next';
 
 export default function Login() {
   const { t } = useTranslation();
-  const { login } = useAuth();
+  const { login, clearLastTenantCode } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [tenantCode, setTenantCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [useStoredTenant, setUseStoredTenant] = useState(true);
+  const [storedTenantCode, setStoredTenantCode] = useState('');
+
+  useEffect(() => {
+    setStoredTenantCode(localStorage.getItem('lastTenantCode') || '');
+  }, []);
+
+  const showTenantField = !useStoredTenant || !storedTenantCode;
+  const effectiveTenantCode = showTenantField ? tenantCode : storedTenantCode;
+
+  const handleUseDifferentTenant = () => {
+    clearLastTenantCode();
+    setStoredTenantCode('');
+    setUseStoredTenant(false);
+    setTenantCode('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
-    const result = await login(username, password, tenantCode);
+    const result = await login(username, password, effectiveTenantCode);
     setLoading(false);
-
     if (result.success) {
       navigate('/dashboard');
     }
@@ -66,21 +80,36 @@ export default function Login() {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                Tenant Code <span className="text-gray-500 text-xs">(Optional)</span>
-              </label>
-              <input
-                type="text"
-                value={tenantCode}
-                onChange={(e) => setTenantCode(e.target.value)}
-                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="Enter tenant code"
-              />
-              <p className="text-xs text-gray-500 mt-0.5">
-                Leave empty for super admin
-              </p>
-            </div>
+            {showTenantField ? (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                  Tenant Code <span className="text-gray-500 text-xs">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={tenantCode}
+                  onChange={(e) => setTenantCode(e.target.value)}
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder="Enter tenant code"
+                />
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Leave empty for super admin
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+                <span className="text-xs text-gray-600">
+                  Tenant: <span className="font-mono font-medium">{storedTenantCode}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleUseDifferentTenant}
+                  className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  Use different tenant / Super admin
+                </button>
+              </div>
+            )}
 
             <button
               type="submit"

@@ -37,10 +37,10 @@ router.post('/', authenticateToken, requireRole('super_admin'), async (req, res)
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create tenant in master database
+    // Create tenant in master database (status inactive until owner first login)
     const result = await masterDbHelpers.run(
-      `INSERT INTO tenants (tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, password)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tenants (tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, password, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'inactive')`,
       [tenant_code, restaurant_name, owner_name, owner_email, owner_phone || null, username, hashedPassword]
     );
 

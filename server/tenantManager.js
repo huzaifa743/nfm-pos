@@ -2,11 +2,15 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-// Master database path (stores tenant information)
-const masterDbPath = path.join(__dirname, 'master.db');
-const tenantsDir = path.join(__dirname, 'tenants');
+// Use DATA_DIR for persistent storage (e.g. Railway volume). Tenants persist across redeploys.
+const dataDir = process.env.DATA_DIR || __dirname;
+const masterDbPath = path.join(dataDir, 'master.db');
+const tenantsDir = path.join(dataDir, 'tenants');
 
-// Ensure tenants directory exists
+if (dataDir !== __dirname) {
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  console.log('✅ Using persistent DATA_DIR:', dataDir);
+}
 if (!fs.existsSync(tenantsDir)) {
   fs.mkdirSync(tenantsDir, { recursive: true });
 }

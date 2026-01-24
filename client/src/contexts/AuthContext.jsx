@@ -30,14 +30,13 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password, tenantCode = '') => {
     try {
-      // Use the same API base URL configuration as api.js
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 
+      const API_BASE_URL = import.meta.env.VITE_API_URL ||
         (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
-      
-      const response = await axios.post(`${API_BASE_URL}/auth/login`, { 
-        username, 
-        password, 
-        tenant_code: tenantCode || undefined 
+
+      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
+        username,
+        password,
+        tenant_code: tenantCode || undefined
       });
       const { token, user } = response.data;
 
@@ -45,6 +44,12 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(user));
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
+
+      if (user.tenant_code) {
+        localStorage.setItem('lastTenantCode', user.tenant_code);
+      } else {
+        localStorage.removeItem('lastTenantCode');
+      }
 
       toast.success('Login successful');
       return { success: true };
@@ -63,8 +68,12 @@ export const AuthProvider = ({ children }) => {
     toast.success('Logged out successfully');
   };
 
+  const clearLastTenantCode = () => {
+    localStorage.removeItem('lastTenantCode');
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, clearLastTenantCode }}>
       {children}
     </AuthContext.Provider>
   );
