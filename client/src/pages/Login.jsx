@@ -26,7 +26,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center p-4 overflow-auto">
+    <div className="fixed inset-0 bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center p-4 overflow-auto">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md my-4 overflow-y-auto max-h-[95vh]">
         <div className="p-6">
           <div className="text-center mb-6">
