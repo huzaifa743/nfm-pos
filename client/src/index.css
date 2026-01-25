@@ -181,7 +181,7 @@ h6 { font-size: 0.875rem; }
 .receipt-spacer-rate {
   width: 50px;
   flex-shrink: 0;
-  padding-right: 8px;
+  padding-right: 12px;
 }
 
 .receipt-spacer-qty {
@@ -257,7 +257,9 @@ h6 { font-size: 0.875rem; }
   text-align: right;
   width: 50px;
   flex-shrink: 0;
-  padding-right: 8px;
+  padding-right: 12px;
+  font-weight: 900;
+  color: #000;
 }
 
 .receipt-items-header .item-qty {
@@ -265,6 +267,18 @@ h6 { font-size: 0.875rem; }
   width: 25px;
   flex-shrink: 0;
   padding-right: 3px;
+  font-weight: 900;
+  color: #000;
+}
+
+.receipt-items-header .item-name {
+  font-weight: 900;
+  color: #000;
+}
+
+.receipt-items-header .item-amount {
+  font-weight: 900;
+  color: #000;
 }
 
 .receipt-items-header .item-amount {
@@ -289,7 +303,7 @@ h6 { font-size: 0.875rem; }
 .item-col {
   color: #000;
   line-height: 1.3;
-  font-weight: 700;
+  font-weight: 900;
 }
 
 .item-name {
@@ -318,16 +332,18 @@ h6 { font-size: 0.875rem; }
 .item-rate {
   width: 50px;
   text-align: right;
-  font-weight: 700;
+  font-weight: 900;
+  color: #000;
   flex-shrink: 0;
   font-size: 11px;
-  padding-right: 8px;
+  padding-right: 12px;
 }
 
 .item-qty {
   width: 25px;
   text-align: center;
-  font-weight: 700;
+  font-weight: 900;
+  color: #000;
   flex-shrink: 0;
   font-size: 11px;
   padding-right: 3px;

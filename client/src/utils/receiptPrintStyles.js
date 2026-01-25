@@ -194,7 +194,7 @@ export const getReceiptPrintStyles = (paperSize = '80mm') => {
     .receipt-spacer-rate {
       width: 50px;
       flex-shrink: 0;
-      padding-right: 8px;
+      padding-right: 12px;
     }
     
     .receipt-spacer-qty {
@@ -272,13 +272,21 @@ export const getReceiptPrintStyles = (paperSize = '80mm') => {
       min-width: 0;
       padding-right: 4px;
       overflow: hidden;
+      font-weight: 900;
+      color: #000 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     
     .receipt-items-header .item-rate {
       text-align: right;
       width: 50px;
       flex-shrink: 0;
-      padding-right: 8px;
+      padding-right: 12px;
+      font-weight: 900;
+      color: #000 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     
     .receipt-items-header .item-qty {
@@ -286,6 +294,10 @@ export const getReceiptPrintStyles = (paperSize = '80mm') => {
       width: 25px;
       flex-shrink: 0;
       padding-right: 3px;
+      font-weight: 900;
+      color: #000 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     
     .receipt-items-header .item-amount {
@@ -293,6 +305,10 @@ export const getReceiptPrintStyles = (paperSize = '80mm') => {
       flex: 0 0 auto;
       min-width: 55px;
       padding-right: 0;
+      font-weight: 900;
+      color: #000 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     
     .receipt-item-row {
@@ -310,7 +326,7 @@ export const getReceiptPrintStyles = (paperSize = '80mm') => {
     .item-col {
       color: #000 !important;
       line-height: 1.3;
-      font-weight: 700;
+      font-weight: 900;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
@@ -338,10 +354,11 @@ export const getReceiptPrintStyles = (paperSize = '80mm') => {
     .item-rate {
       width: 50px;
       text-align: right;
-      font-weight: 700;
+      font-weight: 900;
+      color: #000 !important;
       flex-shrink: 0;
       font-size: 10px;
-      padding-right: 8px;
+      padding-right: 12px;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
@@ -349,7 +366,8 @@ export const getReceiptPrintStyles = (paperSize = '80mm') => {
     .item-qty {
       width: 25px;
       text-align: center;
-      font-weight: 700;
+      font-weight: 900;
+      color: #000 !important;
       flex-shrink: 0;
       font-size: 10px;
       padding-right: 3px;
@@ -362,6 +380,7 @@ export const getReceiptPrintStyles = (paperSize = '80mm') => {
       min-width: 55px;
       text-align: right;
       font-weight: 900;
+      color: #000 !important;
       font-size: 10px;
       padding-right: 0;
       white-space: nowrap;
