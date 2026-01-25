@@ -15,6 +15,11 @@ import {
   Tag,
   FileText,
   Receipt,
+  Clock,
+  CreditCard,
+  RotateCcw,
+  Eye,
+  Save,
 } from 'lucide-react';
 import CheckoutModal from '../components/CheckoutModal';
 import CustomerModal from '../components/CustomerModal';
@@ -22,10 +27,16 @@ import ReceiptPrint from '../components/ReceiptPrint';
 import DiscountModal from '../components/DiscountModal';
 import VATModal from '../components/VATModal';
 import ProductModal from '../components/ProductModal';
+import HoldSalesModal from '../components/HoldSalesModal';
+import SplitPaymentModal from '../components/SplitPaymentModal';
+import RefundModal from '../components/RefundModal';
+import PrintPreviewModal from '../components/PrintPreviewModal';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Billing() {
   const { t } = useTranslation();
   const { settings, formatCurrency } = useSettings();
+  const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [cart, setCart] = useState([]);
@@ -37,6 +48,10 @@ export default function Billing() {
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [showVATModal, setShowVATModal] = useState(false);
+  const [showHoldSalesModal, setShowHoldSalesModal] = useState(false);
+  const [showSplitPaymentModal, setShowSplitPaymentModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [discountType, setDiscountType] = useState('fixed');
   // Initialize VAT from settings and persist across sales
@@ -107,6 +122,7 @@ export default function Billing() {
           product_image: product.image,
           category_name: product.category_name || '',
           unit_price: parseFloat(product.price),
+          original_price: parseFloat(product.price), // Store original price for override tracking
           quantity: 1,
           total_price: parseFloat(product.price),
         },
@@ -172,12 +188,37 @@ export default function Billing() {
     );
   };
 
-  const updatePrice = (id, price) => {
+  const updatePrice = async (id, price, productId, productName) => {
+    const item = cart.find(i => i.id === id);
+    if (!item) return;
+
+    const originalPrice = item.original_price || item.unit_price;
+    
+    // Track price override if price changed from original
+    if (Math.abs(price - originalPrice) > 0.01 && user) {
+      try {
+        await api.post('/sales/price-overrides/history', {
+          product_id: productId,
+          product_name: productName,
+          original_price: originalPrice,
+          override_price: price,
+          sale_id: null // Will be set when sale is completed
+        }).catch(err => console.error('Error tracking price override:', err));
+      } catch (error) {
+        console.error('Error tracking price override:', error);
+      }
+    }
+
     setCart(
       cart.map((item) => {
         if (item.id === id) {
-          const newTotal = price * item.quantity;
-          return { ...item, unit_price: price, total_price: newTotal };
+          const newTotal = parseFloat((price * item.quantity).toFixed(2));
+          return { 
+            ...item, 
+            unit_price: price, 
+            total_price: newTotal,
+            original_price: item.original_price || originalPrice // Preserve original price
+          };
         }
         return item;
       })
@@ -229,21 +270,20 @@ export default function Billing() {
         vat_percentage: noVat ? 0 : vatPercentage,
         vat_amount: vat,
         total,
-        payment_method: paymentData.method,
+        payment_method: paymentData.method || paymentData.payment_method,
         payment_amount: paymentData.amount,
         change_amount: paymentData.change || 0,
+        split_payments: paymentData.split_payments,
       };
 
       const response = await api.post('/sales', saleData);
       setCompletedSale(response.data);
       setShowCheckoutModal(false);
+      setShowSplitPaymentModal(false);
       setShowReceipt(true);
       setCart([]);
       setSelectedCustomer(null);
       setDiscountAmount(0);
-      // VAT persists - don't reset it
-      // setVatPercentage(0);
-      // setNoVat(false);
       
       // Refresh products to update stock quantities
       await fetchProducts();
@@ -260,6 +300,60 @@ export default function Billing() {
       console.error('Error completing sale:', error);
       toast.error(error.response?.data?.error || 'Failed to complete sale');
     }
+  };
+
+  const handleHoldSale = async () => {
+    if (cart.length === 0) {
+      toast.error('Cart is empty');
+      return;
+    }
+
+    try {
+      const { subtotal, discount, vat, total } = calculateTotals();
+      
+      await api.post('/sales/hold', {
+        customer_id: selectedCustomer?.id || null,
+        items: cart.map((item) => ({
+          product_id: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+        })),
+        subtotal,
+        discount_amount: discount,
+        discount_type: discountType,
+        vat_percentage: noVat ? 0 : vatPercentage,
+        vat_amount: vat,
+        total,
+      });
+
+      toast.success('Sale held successfully');
+      setCart([]);
+      setSelectedCustomer(null);
+      setDiscountAmount(0);
+    } catch (error) {
+      console.error('Error holding sale:', error);
+      toast.error(error.response?.data?.error || 'Failed to hold sale');
+    }
+  };
+
+  const handleResumeSale = (saleData) => {
+    // Restore cart items with original_price
+    const restoredItems = saleData.items.map(item => ({
+      ...item,
+      id: Date.now() + Math.random(), // Generate new IDs
+      original_price: item.original_price || item.unit_price
+    }));
+    setCart(restoredItems);
+    if (saleData.customer_id) {
+      // You might need to fetch customer details here
+      setSelectedCustomer({ id: saleData.customer_id });
+    }
+    setDiscountAmount(saleData.discount_amount || 0);
+    setDiscountType(saleData.discount_type || 'fixed');
+    setVatPercentage(saleData.vat_percentage || 0);
+    setNoVat(saleData.vat_percentage === 0);
   };
 
   const handlePrintReceipt = () => {
@@ -425,23 +519,24 @@ export default function Billing() {
                           const value = e.target.value;
                           // Allow empty input for continuous typing
                           if (value === '' || value === '.') {
-                            updatePrice(item.id, 0);
+                            updatePrice(item.id, 0, item.product_id, item.product_name);
                             return;
                           }
                           const numValue = parseFloat(value);
                           if (!isNaN(numValue) && numValue >= 0) {
-                            updatePrice(item.id, numValue);
+                            updatePrice(item.id, numValue, item.product_id, item.product_name);
                           }
                         }}
                         onBlur={(e) => {
                           // Ensure value is set on blur if empty
                           const value = parseFloat(e.target.value) || 0;
-                          updatePrice(item.id, value);
+                          updatePrice(item.id, value, item.product_id, item.product_name);
                         }}
                         className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-right focus:ring-2 focus:ring-primary-500 focus:outline-none"
                         step="0.01"
                         min="0"
                         placeholder="0.00"
+                        title={item.original_price && item.unit_price !== item.original_price ? `Original: ${formatCurrency(item.original_price)}` : ''}
                       />
                       <span className="font-semibold text-gray-800 min-w-[60px] text-right">
                         {formatCurrency(item.total_price)}
@@ -456,6 +551,28 @@ export default function Billing() {
 
         {/* Cart Summary */}
         <div className="p-4 border-t border-gray-200 bg-gray-50">
+          {/* Cart Summary Details */}
+          <div className="mb-4 pb-3 border-b border-gray-300">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">Items in Cart:</span>
+              <span className="text-sm font-bold text-primary-600">{cart.length}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-700">Total Quantity:</span>
+              <span className="text-sm font-bold text-gray-800">
+                {cart.reduce((sum, item) => sum + item.quantity, 0).toFixed(2)}
+              </span>
+            </div>
+            {cart.length > 0 && (
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-xs text-gray-500">Avg. Item Value:</span>
+                <span className="text-xs font-medium text-gray-600">
+                  {formatCurrency(subtotal / cart.length)}
+                </span>
+              </div>
+            )}
+          </div>
+
           <div className="space-y-2 mb-4">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">{t('billing.subtotal')}:</span>
@@ -508,17 +625,65 @@ export default function Billing() {
               </button>
             </div>
 
+            {/* Hold and Split Payment Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={handleHoldSale}
+                disabled={cart.length === 0}
+                className="flex-1 px-4 py-2.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-semibold flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save className="w-4 h-4" />
+                Hold Sale
+              </button>
+              <button
+                onClick={() => setShowHoldSalesModal(true)}
+                className="px-4 py-2.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors font-semibold flex items-center justify-center gap-2 text-sm"
+                title="View Held Sales"
+              >
+                <Clock className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setShowSplitPaymentModal(true)}
+                disabled={cart.length === 0}
+                className="px-4 py-2.5 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors font-semibold flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Split Payment"
+              >
+                <CreditCard className="w-4 h-4" />
+              </button>
+            </div>
+
             {/* Checkout and Receipt Buttons */}
             <div className="flex gap-2">
               <button
                 onClick={handleCheckout}
-                className="flex-1 bg-primary-600 text-white py-3 rounded-lg font-semibold hover:bg-primary-700 transition-colors"
+                disabled={cart.length === 0}
+                className="flex-1 bg-primary-600 text-white py-3 rounded-lg font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('billing.checkout')}
               </button>
+              {completedSale && (
+                <>
+                  <button
+                    onClick={() => setShowPrintPreview(true)}
+                    className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    title="Print Preview"
+                  >
+                    <Eye className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setShowRefundModal(true)}
+                    className="px-4 py-3 bg-red-200 text-red-700 rounded-lg hover:bg-red-300 transition-colors"
+                    title="Refund"
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => setShowReceipt(true)}
-                className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                disabled={!completedSale}
+                className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="View Receipt"
               >
                 <Receipt className="w-5 h-5" />
               </button>
@@ -761,6 +926,41 @@ export default function Billing() {
           toast.success('Product added and placed in cart');
         }}
       />
+
+      <HoldSalesModal
+        open={showHoldSalesModal}
+        onClose={() => setShowHoldSalesModal(false)}
+        onResume={handleResumeSale}
+      />
+
+      <SplitPaymentModal
+        open={showSplitPaymentModal}
+        onClose={() => setShowSplitPaymentModal(false)}
+        total={total}
+        onConfirm={handlePayment}
+      />
+
+      {completedSale && (
+        <>
+          <RefundModal
+            open={showRefundModal}
+            onClose={() => setShowRefundModal(false)}
+            sale={completedSale}
+            onRefundComplete={() => {
+              setCompletedSale(null);
+              setShowReceipt(false);
+              toast.success('Refund completed');
+            }}
+          />
+
+          <PrintPreviewModal
+            open={showPrintPreview}
+            onClose={() => setShowPrintPreview(false)}
+            sale={completedSale}
+            onPrint={handlePrintReceipt}
+          />
+        </>
+      )}
     </div>
   );
 }
