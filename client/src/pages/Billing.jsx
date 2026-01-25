@@ -884,7 +884,7 @@ export default function Billing() {
           sale={completedSale}
           onClose={() => {
             setShowReceipt(false);
-            setCompletedSale(null);
+            // Don't clear completedSale so receipt can be viewed again
           }}
           onPrint={handlePrintReceipt}
         />
