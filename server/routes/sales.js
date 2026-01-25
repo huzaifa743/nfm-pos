@@ -164,4 +164,35 @@ router.post('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, a
   }
 });
 
+// Delete sale
+router.delete('/:id', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
+  try {
+    const saleId = req.params.id;
+
+    // Get sale items to restore stock if needed
+    const saleItems = await req.db.query('SELECT * FROM sale_items WHERE sale_id = ?', [saleId]);
+    
+    // Restore stock for products with stock tracking enabled
+    for (const item of saleItems) {
+      if (item.product_id) {
+        const product = await req.db.get('SELECT stock_tracking_enabled FROM products WHERE id = ?', [item.product_id]);
+        if (product && (product.stock_tracking_enabled === 1 || product.stock_tracking_enabled === true)) {
+          await req.db.run('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [item.quantity, item.product_id]);
+        }
+      }
+    }
+
+    // Delete sale items first (foreign key constraint)
+    await req.db.run('DELETE FROM sale_items WHERE sale_id = ?', [saleId]);
+    
+    // Delete the sale
+    await req.db.run('DELETE FROM sales WHERE id = ?', [saleId]);
+
+    res.json({ message: 'Sale deleted successfully' });
+  } catch (error) {
+    console.error('Delete sale error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;

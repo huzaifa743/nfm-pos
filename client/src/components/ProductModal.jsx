@@ -20,7 +20,6 @@ export default function ProductModal({
     price: '',
     category_id: '',
     description: '',
-    image: null,
     add_expiry_date: false,
     expiry_date: '',
     add_barcode: false,
@@ -39,7 +38,6 @@ export default function ProductModal({
         price: String(editingProduct.price),
         category_id: editingProduct.category_id || '',
         description: editingProduct.description || '',
-        image: null,
         add_expiry_date: !!editingProduct.expiry_date,
         expiry_date: editingProduct.expiry_date ? String(editingProduct.expiry_date).slice(0, 10) : '',
         add_barcode: !!editingProduct.barcode,
@@ -54,7 +52,6 @@ export default function ProductModal({
         price: '',
         category_id: initialCategoryId || '',
         description: '',
-        image: null,
         add_expiry_date: false,
         expiry_date: '',
         add_barcode: false,
@@ -88,7 +85,6 @@ export default function ProductModal({
       formData.append('price', String(price));
       formData.append('category_id', form.category_id || '');
       formData.append('description', form.description || '');
-      if (form.image) formData.append('image', form.image);
       formData.append(
         'expiry_date',
         form.add_expiry_date && form.expiry_date ? form.expiry_date : ''
@@ -122,7 +118,6 @@ export default function ProductModal({
         price: '',
         category_id: '',
         description: '',
-        image: null,
         add_expiry_date: false,
         expiry_date: '',
         add_barcode: false,
@@ -238,18 +233,6 @@ export default function ProductModal({
             <p className="text-xs text-gray-500 mt-1">
               Cost price of the product. Used for profit calculations in reports.
             </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t('inventory.image')}
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => handleChange('image', e.target.files[0] || null)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-            />
           </div>
 
           <div>

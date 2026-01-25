@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useSettings } from '../contexts/SettingsContext';
 import api from '../api/api';
 import toast from 'react-hot-toast';
-import { Search, Eye, Printer } from 'lucide-react';
+import { Search, Eye, Printer, Trash2 } from 'lucide-react';
 import ReceiptPrint from '../components/ReceiptPrint';
 import { getReceiptPrintStyles } from '../utils/receiptPrintStyles';
 
@@ -87,6 +87,21 @@ export default function SalesHistory() {
     } catch (error) {
       console.error('Error fetching sale details:', error);
       toast.error('Failed to load receipt');
+    }
+  };
+
+  const handleDeleteSale = async (saleId) => {
+    if (!window.confirm('Are you sure you want to delete this sale? This action cannot be undone and stock will be restored if applicable.')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/sales/${saleId}`);
+      toast.success('Sale deleted successfully');
+      fetchSales(); // Refresh the list
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+      toast.error(error.response?.data?.error || 'Failed to delete sale');
     }
   };
 
@@ -211,6 +226,13 @@ export default function SalesHistory() {
                         >
                           <Printer className="w-4 h-4" />
                           {t('salesHistory.reprint')}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSale(sale.id)}
+                          className="text-red-600 hover:text-red-900 flex items-center gap-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
                         </button>
                       </div>
                     </td>

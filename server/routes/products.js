@@ -150,7 +150,7 @@ router.get('/:id', authenticateToken, requireTenant, getTenantDb, closeTenantDb,
 });
 
 // Create product
-router.post('/', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, upload.single('image'), async (req, res) => {
+router.post('/', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const tenantCode = req.user?.tenant_code;
     if (tenantCode) {
@@ -166,7 +166,6 @@ router.post('/', authenticateToken, preventDemoModifications, requireTenant, get
       return res.status(400).json({ error: 'Name and price are required' });
     }
 
-    const image = req.file ? `/uploads/products/${req.file.filename}` : null;
     const expiry = expiry_date && String(expiry_date).trim() ? String(expiry_date).trim() : null;
     const barcodeValue = barcode && String(barcode).trim() ? String(barcode).trim() : null;
     const stockTracking = stock_tracking_enabled === 'true' || stock_tracking_enabled === true ? 1 : 0;
@@ -175,8 +174,8 @@ router.post('/', authenticateToken, preventDemoModifications, requireTenant, get
     const purchaseRate = purchase_rate && !isNaN(parseFloat(purchase_rate)) ? parseFloat(purchase_rate) : null;
 
     const result = await req.db.run(
-      'INSERT INTO products (name, price, category_id, image, description, stock_quantity, expiry_date, barcode, stock_tracking_enabled, purchase_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, parseFloat(price), category_id || null, image, description || null, stockQty, expiry, barcodeValue, stockTracking, purchaseRate]
+      'INSERT INTO products (name, price, category_id, description, stock_quantity, expiry_date, barcode, stock_tracking_enabled, purchase_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, parseFloat(price), category_id || null, description || null, stockQty, expiry, barcodeValue, stockTracking, purchaseRate]
     );
 
     const product = await req.db.get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [result.id]);
@@ -189,7 +188,7 @@ router.post('/', authenticateToken, preventDemoModifications, requireTenant, get
 });
 
 // Update product
-router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, upload.single('image'), async (req, res) => {
+router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
     const tenantCode = req.user?.tenant_code;
     if (tenantCode) {
@@ -217,25 +216,9 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
       stockQty = 0; // Reset to 0 if stock tracking is disabled
     }
 
-    let image = null;
-    if (req.file) {
-      image = `/uploads/products/${req.file.filename}`;
-      // Delete old image if exists
-      const oldProduct = await req.db.get('SELECT image FROM products WHERE id = ?', [productId]);
-      if (oldProduct && oldProduct.image) {
-        const oldImagePath = path.join(__dirname, '..', oldProduct.image);
-        if (fs.existsSync(oldImagePath)) {
-          fs.unlinkSync(oldImagePath);
-        }
-      }
-    }
-
     await req.db.run(
-      'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, expiry_date = ?, barcode = ?, stock_tracking_enabled = ?, stock_quantity = ?, purchase_rate = ?, updated_at = CURRENT_TIMESTAMP' +
-      (image ? ', image = ?' : '') + ' WHERE id = ?',
-      image
-        ? [name, parseFloat(price), category_id || null, description || null, expiry, barcodeValue, stockTracking, stockQty, purchaseRate, image, productId]
-        : [name, parseFloat(price), category_id || null, description || null, expiry, barcodeValue, stockTracking, stockQty, purchaseRate, productId]
+      'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, expiry_date = ?, barcode = ?, stock_tracking_enabled = ?, stock_quantity = ?, purchase_rate = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [name, parseFloat(price), category_id || null, description || null, expiry, barcodeValue, stockTracking, stockQty, purchaseRate, productId]
     );
 
     const product = await req.db.get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [productId]);
@@ -250,15 +233,6 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
 // Delete product
 router.delete('/:id', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
-    const product = await req.db.get('SELECT image FROM products WHERE id = ?', [req.params.id]);
-    
-    if (product && product.image) {
-      const imagePath = path.join(__dirname, '..', product.image);
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
-      }
-    }
-
     await req.db.run('DELETE FROM products WHERE id = ?', [req.params.id]);
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {

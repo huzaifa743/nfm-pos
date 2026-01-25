@@ -572,19 +572,6 @@ export default function Billing() {
                     className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => addToCart(product)}
                   >
-                    <div className="w-full h-32 bg-gray-200 rounded mb-3 flex items-center justify-center overflow-hidden">
-                      {product.image ? (
-                        <img
-                          src={getImageURL(product.image)}
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                          <span className="text-gray-400 text-xs">No Image</span>
-                        </div>
-                      )}
-                    </div>
                     <h3 className="font-medium text-gray-800 text-sm mb-1">
                       {product.name}
                     </h3>
