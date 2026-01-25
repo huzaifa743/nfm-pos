@@ -150,7 +150,7 @@ router.get('/:id', authenticateToken, requireTenant, getTenantDb, closeTenantDb,
 });
 
 // Create product
-router.post('/', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
+router.post('/', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, upload.any(), closeTenantDb, async (req, res) => {
   try {
     const tenantCode = req.user?.tenant_code;
     if (tenantCode) {
@@ -162,8 +162,21 @@ router.post('/', authenticateToken, preventDemoModifications, requireTenant, get
 
     const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity, purchase_rate } = req.body;
 
-    if (!name || !price) {
-      return res.status(400).json({ error: 'Name and price are required' });
+    // Validate and trim name
+    const trimmedName = name ? String(name).trim() : '';
+    if (!trimmedName) {
+      return res.status(400).json({ error: 'Product name is required' });
+    }
+
+    // Validate and parse price
+    const trimmedPrice = price ? String(price).trim() : '';
+    if (!trimmedPrice) {
+      return res.status(400).json({ error: 'Product price is required' });
+    }
+    
+    const parsedPrice = parseFloat(trimmedPrice);
+    if (isNaN(parsedPrice) || parsedPrice < 0) {
+      return res.status(400).json({ error: 'Product price must be a valid number greater than or equal to 0' });
     }
 
     const expiry = expiry_date && String(expiry_date).trim() ? String(expiry_date).trim() : null;
@@ -175,7 +188,7 @@ router.post('/', authenticateToken, preventDemoModifications, requireTenant, get
 
     const result = await req.db.run(
       'INSERT INTO products (name, price, category_id, description, stock_quantity, expiry_date, barcode, stock_tracking_enabled, purchase_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, parseFloat(price), category_id || null, description || null, stockQty, expiry, barcodeValue, stockTracking, purchaseRate]
+      [trimmedName, parsedPrice, category_id || null, description || null, stockQty, expiry, barcodeValue, stockTracking, purchaseRate]
     );
 
     const product = await req.db.get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [result.id]);
@@ -188,7 +201,7 @@ router.post('/', authenticateToken, preventDemoModifications, requireTenant, get
 });
 
 // Update product
-router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
+router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, upload.any(), closeTenantDb, async (req, res) => {
   try {
     const tenantCode = req.user?.tenant_code;
     if (tenantCode) {
@@ -199,6 +212,23 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
     }
 
     const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity, purchase_rate } = req.body;
+    
+    // Validate and trim name
+    const trimmedName = name ? String(name).trim() : '';
+    if (!trimmedName) {
+      return res.status(400).json({ error: 'Product name is required' });
+    }
+
+    // Validate and parse price
+    const trimmedPrice = price ? String(price).trim() : '';
+    if (!trimmedPrice) {
+      return res.status(400).json({ error: 'Product price is required' });
+    }
+    
+    const parsedPrice = parseFloat(trimmedPrice);
+    if (isNaN(parsedPrice) || parsedPrice < 0) {
+      return res.status(400).json({ error: 'Product price must be a valid number greater than or equal to 0' });
+    }
     const productId = req.params.id;
     const expiry = expiry_date != null && String(expiry_date).trim() ? String(expiry_date).trim() : null;
     const barcodeValue = barcode != null && String(barcode).trim() ? String(barcode).trim() : null;
@@ -218,7 +248,7 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
 
     await req.db.run(
       'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, expiry_date = ?, barcode = ?, stock_tracking_enabled = ?, stock_quantity = ?, purchase_rate = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [name, parseFloat(price), category_id || null, description || null, expiry, barcodeValue, stockTracking, stockQty, purchaseRate, productId]
+      [trimmedName, parsedPrice, category_id || null, description || null, expiry, barcodeValue, stockTracking, stockQty, purchaseRate, productId]
     );
 
     const product = await req.db.get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [productId]);
