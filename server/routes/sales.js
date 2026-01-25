@@ -137,9 +137,12 @@ router.post('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, a
         ]
       );
 
-      // Update product stock if needed
+      // Update product stock only if stock tracking is enabled
       if (item.product_id) {
-        await req.db.run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [item.quantity, item.product_id]);
+        const product = await req.db.get('SELECT stock_tracking_enabled FROM products WHERE id = ?', [item.product_id]);
+        if (product && (product.stock_tracking_enabled === 1 || product.stock_tracking_enabled === true)) {
+          await req.db.run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [item.quantity, item.product_id]);
+        }
       }
     }
 

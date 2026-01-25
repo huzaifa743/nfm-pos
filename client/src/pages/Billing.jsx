@@ -31,6 +31,7 @@ export default function Billing() {
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [barcodeInput, setBarcodeInput] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
@@ -107,6 +108,46 @@ export default function Billing() {
         },
       ]);
       if (!silent) toast.success('Product added to cart');
+    }
+  };
+
+  const handleBarcodeScan = async (barcode) => {
+    if (!barcode || !barcode.trim()) return;
+
+    try {
+      const response = await api.get('/products', { params: { barcode: barcode.trim() } });
+      
+      if (response.data && response.data.length > 0) {
+        const product = response.data[0];
+        addToCart(product, false);
+        setBarcodeInput(''); // Clear barcode input after successful scan
+        toast.success(`${product.name} added to cart`);
+      } else {
+        toast.error('Product not found with this barcode');
+      }
+    } catch (error) {
+      console.error('Error scanning barcode:', error);
+      toast.error('Failed to scan barcode');
+    }
+  };
+
+  const handleBarcodeInputChange = (e) => {
+    const value = e.target.value;
+    setBarcodeInput(value);
+    
+    // Auto-trigger search when Enter is pressed or barcode is complete (assuming barcode scanners send Enter)
+    if (e.nativeEvent.inputType === 'insertLineBreak' || (value.length > 8 && value.includes('\n'))) {
+      const barcode = value.trim().replace(/\n/g, '');
+      if (barcode) {
+        handleBarcodeScan(barcode);
+      }
+    }
+  };
+
+  const handleBarcodeKeyPress = (e) => {
+    if (e.key === 'Enter' && barcodeInput.trim()) {
+      e.preventDefault();
+      handleBarcodeScan(barcodeInput);
     }
   };
 
@@ -469,8 +510,22 @@ export default function Billing() {
               ))}
             </select>
             
-            {/* Search Product - Right Side */}
-            <div className="flex-1 relative flex items-center gap-2">
+            {/* Barcode Scanner and Search - Right Side */}
+            <div className="flex-1 flex items-center gap-2">
+              {/* Barcode Scanner */}
+              <div className="relative w-48">
+                <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Scan Barcode"
+                  value={barcodeInput}
+                  onChange={handleBarcodeInputChange}
+                  onKeyPress={handleBarcodeKeyPress}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  autoComplete="off"
+                />
+              </div>
+              {/* Search Product */}
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input

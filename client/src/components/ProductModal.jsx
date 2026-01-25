@@ -25,6 +25,7 @@ export default function ProductModal({
     expiry_date: '',
     add_barcode: false,
     barcode: '',
+    stock_tracking_enabled: false,
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -41,6 +42,7 @@ export default function ProductModal({
         expiry_date: editingProduct.expiry_date ? String(editingProduct.expiry_date).slice(0, 10) : '',
         add_barcode: !!editingProduct.barcode,
         barcode: editingProduct.barcode || '',
+        stock_tracking_enabled: editingProduct.stock_tracking_enabled === 1 || editingProduct.stock_tracking_enabled === true,
       });
     } else {
       setForm({
@@ -53,6 +55,7 @@ export default function ProductModal({
         expiry_date: '',
         add_barcode: false,
         barcode: '',
+        stock_tracking_enabled: false,
       });
     }
   }, [open, editingProduct, initialCategoryId]);
@@ -88,6 +91,7 @@ export default function ProductModal({
         'barcode',
         form.add_barcode && form.barcode ? form.barcode : ''
       );
+      formData.append('stock_tracking_enabled', form.stock_tracking_enabled ? 'true' : 'false');
 
       let product;
       if (editingProduct) {
@@ -115,6 +119,7 @@ export default function ProductModal({
         expiry_date: '',
         add_barcode: false,
         barcode: '',
+        stock_tracking_enabled: false,
       });
     } catch (err) {
       console.error('Product save error:', err);
@@ -134,6 +139,9 @@ export default function ProductModal({
       image: null,
       add_expiry_date: false,
       expiry_date: '',
+      add_barcode: false,
+      barcode: '',
+      stock_tracking_enabled: false,
     });
   };
 
@@ -286,6 +294,21 @@ export default function ProductModal({
                 />
               </div>
             )}
+          </div>
+
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.stock_tracking_enabled}
+                onChange={(e) => handleChange('stock_tracking_enabled', e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Enable Stock Tracking (Optional)</span>
+            </label>
+            <p className="text-xs text-gray-500 ml-6">
+              When enabled, stock quantity will be automatically deducted when this product is sold.
+            </p>
           </div>
 
           <div className="flex gap-3">
