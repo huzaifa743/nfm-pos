@@ -61,9 +61,11 @@ router.get('/products', authenticateToken, requireTenant, getTenantDb, closeTena
   try {
     const { start_date, end_date } = req.query;
 
-    let sql = `SELECT p.id, p.name, p.price, c.name as category_name,
+    let sql = `SELECT p.id, p.name, p.price, p.purchase_rate, c.name as category_name,
                COALESCE(SUM(si.quantity), 0) as total_quantity,
-               COALESCE(SUM(si.total_price), 0) as total_revenue
+               COALESCE(SUM(si.total_price), 0) as total_revenue,
+               COALESCE(SUM(si.quantity * COALESCE(p.purchase_rate, 0)), 0) as total_cost,
+               COALESCE(SUM(si.total_price), 0) - COALESCE(SUM(si.quantity * COALESCE(p.purchase_rate, 0)), 0) as total_profit
                FROM products p
                LEFT JOIN categories c ON p.category_id = c.id
                LEFT JOIN sale_items si ON p.id = si.product_id
@@ -86,13 +88,66 @@ router.get('/products', authenticateToken, requireTenant, getTenantDb, closeTena
       sql += ' WHERE ' + conditions.join(' AND ');
     }
 
-    sql += ` GROUP BY p.id, p.name, p.price, c.name
+    sql += ` GROUP BY p.id, p.name, p.price, p.purchase_rate, c.name
              ORDER BY total_revenue DESC`;
 
     const products = await req.db.query(sql, params);
     res.json(products);
   } catch (error) {
     console.error('Product report error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get sales by users report
+router.get('/users', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+
+    let sql = `SELECT u.id, u.username, u.full_name, u.role,
+               COUNT(DISTINCT s.id) as total_sales,
+               COALESCE(SUM(s.total), 0) as total_revenue,
+               COALESCE(SUM(s.discount_amount), 0) as total_discount,
+               COALESCE(SUM(s.vat_amount), 0) as total_vat,
+               COALESCE(SUM(si.quantity), 0) as total_items_sold
+               FROM users u
+               LEFT JOIN sales s ON u.id = s.user_id
+               LEFT JOIN sale_items si ON s.id = si.sale_id
+               WHERE 1=1`;
+    
+    const params = [];
+    const conditions = [];
+
+    if (start_date) {
+      conditions.push('DATE(s.created_at) >= ?');
+      params.push(start_date);
+    }
+
+    if (end_date) {
+      conditions.push('DATE(s.created_at) <= ?');
+      params.push(end_date);
+    }
+
+    if (conditions.length > 0) {
+      sql += ' AND ' + conditions.join(' AND ');
+    }
+
+    sql += ` GROUP BY u.id, u.username, u.full_name, u.role
+             ORDER BY total_revenue DESC`;
+
+    const users = await req.db.query(sql, params);
+    
+    // Calculate summary
+    const summary = {
+      totalUsers: users.length,
+      totalSales: users.reduce((sum, user) => sum + (user.total_sales || 0), 0),
+      totalRevenue: users.reduce((sum, user) => sum + parseFloat(user.total_revenue || 0), 0),
+      totalItemsSold: users.reduce((sum, user) => sum + (user.total_items_sold || 0), 0)
+    };
+
+    res.json({ users, summary });
+  } catch (error) {
+    console.error('Sales by users report error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

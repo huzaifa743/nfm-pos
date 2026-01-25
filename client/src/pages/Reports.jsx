@@ -27,6 +27,7 @@ export default function Reports() {
   const [orderType, setOrderType] = useState('');
   const [salesReport, setSalesReport] = useState(null);
   const [productReport, setProductReport] = useState(null);
+  const [usersReport, setUsersReport] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -39,24 +40,28 @@ export default function Reports() {
   const fetchReports = async () => {
     setLoading(true);
     try {
+      const params = {
+        start_date: startDate,
+        end_date: endDate,
+      };
+
       if (reportType === 'sales') {
-        const params = {
-          start_date: startDate,
-          end_date: endDate,
-        };
         if (paymentMethod) params.payment_method = paymentMethod;
         if (orderType) params.order_type = orderType;
-
         const response = await api.get('/reports/sales', { params });
         setSalesReport(response.data);
-      } else {
-        const params = {
-          start_date: startDate,
-          end_date: endDate,
-        };
-
+        setProductReport(null);
+        setUsersReport(null);
+      } else if (reportType === 'products') {
         const response = await api.get('/reports/products', { params });
         setProductReport(response.data);
+        setSalesReport(null);
+        setUsersReport(null);
+      } else if (reportType === 'users') {
+        const response = await api.get('/reports/users', { params });
+        setUsersReport(response.data);
+        setSalesReport(null);
+        setProductReport(null);
       }
     } catch (error) {
       console.error('Error fetching reports:', error);
@@ -94,6 +99,7 @@ export default function Reports() {
             >
               <option value="sales">{t('reports.salesReport')}</option>
               <option value="products">{t('reports.productReport')}</option>
+              <option value="users">Sales by Users</option>
             </select>
           </div>
 
@@ -299,10 +305,19 @@ export default function Reports() {
                       Price
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Purchase Rate
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Quantity Sold
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Total Revenue
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Total Cost
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Profit
                     </th>
                   </tr>
                 </thead>
@@ -319,10 +334,19 @@ export default function Reports() {
                         {formatCurrency(product.price)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
+                        {product.purchase_rate ? formatCurrency(product.purchase_rate) : '—'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
                         {product.total_quantity}
                       </td>
                       <td className="px-6 py-4 text-sm font-semibold text-gray-900">
                         {formatCurrency(product.total_revenue)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {product.purchase_rate ? formatCurrency(product.total_cost || 0) : '—'}
+                      </td>
+                      <td className={`px-6 py-4 text-sm font-semibold ${product.total_profit > 0 ? 'text-green-600' : product.total_profit < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                        {product.purchase_rate ? formatCurrency(product.total_profit || 0) : '—'}
                       </td>
                     </tr>
                   ))}
@@ -336,6 +360,102 @@ export default function Reports() {
       {loading && (
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        </div>
+      )}
+
+      {/* Users Report */}
+      {reportType === 'users' && usersReport && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Sales by Users
+            </h3>
+            
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-blue-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-1">Total Users</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {usersReport.summary?.totalUsers || 0}
+                </p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-1">Total Sales</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {usersReport.summary?.totalSales || 0}
+                </p>
+              </div>
+              <div className="bg-purple-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-1">Total Revenue</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {formatCurrency(usersReport.summary?.totalRevenue || 0)}
+                </p>
+              </div>
+              <div className="bg-orange-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-1">Total Items Sold</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {usersReport.summary?.totalItemsSold || 0}
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      User
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Role
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Total Sales
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Total Revenue
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Total Discount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Total VAT
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Items Sold
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {usersReport.users?.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                        {user.full_name || user.username}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500 capitalize">
+                        {user.role}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {user.total_sales || 0}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                        {formatCurrency(user.total_revenue || 0)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {formatCurrency(user.total_discount || 0)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {formatCurrency(user.total_vat || 0)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {user.total_items_sold || 0}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -27,6 +27,7 @@ export default function ProductModal({
     barcode: '',
     stock_tracking_enabled: false,
     stock_quantity: '0',
+    purchase_rate: '',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -45,6 +46,7 @@ export default function ProductModal({
         barcode: editingProduct.barcode || '',
         stock_tracking_enabled: editingProduct.stock_tracking_enabled === 1 || editingProduct.stock_tracking_enabled === true,
         stock_quantity: String(editingProduct.stock_quantity || 0),
+        purchase_rate: editingProduct.purchase_rate ? String(editingProduct.purchase_rate) : '',
       });
     } else {
       setForm({
@@ -59,6 +61,7 @@ export default function ProductModal({
         barcode: '',
         stock_tracking_enabled: false,
         stock_quantity: '0',
+        purchase_rate: '',
       });
     }
   }, [open, editingProduct, initialCategoryId]);
@@ -96,6 +99,7 @@ export default function ProductModal({
       );
       formData.append('stock_tracking_enabled', form.stock_tracking_enabled ? 'true' : 'false');
       formData.append('stock_quantity', form.stock_tracking_enabled ? String(form.stock_quantity || 0) : '0');
+      formData.append('purchase_rate', form.purchase_rate ? String(form.purchase_rate) : '');
 
       let product;
       if (editingProduct) {
@@ -125,6 +129,7 @@ export default function ProductModal({
         barcode: '',
         stock_tracking_enabled: false,
         stock_quantity: '0',
+        purchase_rate: '',
       });
     } catch (err) {
       console.error('Product save error:', err);
@@ -215,6 +220,24 @@ export default function ProductModal({
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Purchase Rate (Optional)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.purchase_rate}
+              onChange={(e) => handleChange('purchase_rate', e.target.value)}
+              placeholder="Enter purchase/cost price"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Cost price of the product. Used for profit calculations in reports.
+            </p>
           </div>
 
           <div>
