@@ -268,6 +268,55 @@ function createTenantDatabase(tenantCode) {
   });
 }
 
+// Migrate existing tenant database - add missing tables
+function migrateTenantDatabase(db) {
+  return new Promise((resolve, reject) => {
+    db.serialize(() => {
+      // Check if held_sales table exists and create if missing
+      db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='held_sales'", (err, row) => {
+        if (err) {
+          console.error('Error checking held_sales table:', err);
+          reject(err);
+          return;
+        }
+        
+        if (!row) {
+          // Table doesn't exist, create it
+          console.log('Migrating: Creating held_sales table...');
+          db.run(`CREATE TABLE IF NOT EXISTS held_sales (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            hold_number TEXT UNIQUE NOT NULL,
+            customer_id INTEGER,
+            user_id INTEGER NOT NULL,
+            cart_data TEXT NOT NULL,
+            subtotal REAL NOT NULL,
+            discount_amount REAL DEFAULT 0,
+            discount_type TEXT DEFAULT 'fixed',
+            vat_percentage REAL DEFAULT 0,
+            vat_amount REAL DEFAULT 0,
+            total REAL NOT NULL,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (customer_id) REFERENCES customers(id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+          )`, (err) => {
+            if (err) {
+              console.error('Error creating held_sales table:', err);
+              reject(err);
+            } else {
+              console.log('✅ Migration complete: held_sales table created');
+              resolve();
+            }
+          });
+        } else {
+          // Table exists, no migration needed
+          resolve();
+        }
+      });
+    });
+  });
+}
+
 // Get tenant database connection
 function getTenantDatabase(tenantCode) {
   return new Promise((resolve, reject) => {
@@ -282,7 +331,10 @@ function getTenantDatabase(tenantCode) {
       if (err) {
         reject(err);
       } else {
-        resolve(db);
+        // Run migrations for existing databases
+        migrateTenantDatabase(db)
+          .then(() => resolve(db))
+          .catch(reject);
       }
     });
   });
