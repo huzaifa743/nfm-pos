@@ -69,19 +69,30 @@ export default function ProductModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name?.trim() || !form.price) {
-      toast.error(t('inventory.nameRequired') + ' and ' + t('inventory.priceRequired'));
+    
+    // Validate name
+    const trimmedName = form.name?.trim();
+    if (!trimmedName) {
+      toast.error(t('inventory.nameRequired') || 'Product name is required');
       return;
     }
-    const price = parseFloat(form.price);
+    
+    // Validate price
+    const trimmedPrice = form.price?.toString().trim();
+    if (!trimmedPrice || trimmedPrice === '') {
+      toast.error(t('inventory.priceRequired') || 'Product price is required');
+      return;
+    }
+    
+    const price = parseFloat(trimmedPrice);
     if (isNaN(price) || price < 0) {
-      toast.error(t('inventory.priceRequired'));
+      toast.error(t('inventory.priceRequired') || 'Product price must be a valid number greater than or equal to 0');
       return;
     }
     setSubmitting(true);
     try {
       const formData = new FormData();
-      formData.append('name', form.name.trim());
+      formData.append('name', trimmedName);
       formData.append('price', String(price));
       formData.append('category_id', form.category_id || '');
       formData.append(
