@@ -580,9 +580,30 @@ export default function Billing() {
                     <h3 className="font-medium text-gray-800 text-sm mb-1">
                       {product.name}
                     </h3>
-                    <p className="text-xs text-gray-500 mb-2">
+                    <p className="text-xs text-gray-500 mb-1">
                       {product.category_name}
                     </p>
+                    {/* Product Details: Barcode, Expiry, Stock */}
+                    <div className="space-y-1 mb-2">
+                      {product.barcode && (
+                        <div className="flex items-center gap-1 text-xs text-gray-600">
+                          <Tag className="w-3 h-3" />
+                          <span className="truncate">Barcode: {product.barcode}</span>
+                        </div>
+                      )}
+                      {product.expiry_date && (
+                        <div className="text-xs text-gray-600">
+                          <span className="font-medium">Expiry:</span> {new Date(product.expiry_date).toLocaleDateString()}
+                        </div>
+                      )}
+                      {product.stock_tracking_enabled === 1 && (
+                        <div className="text-xs">
+                          <span className={`font-medium ${product.stock_quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            Stock: {product.stock_quantity || 0}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-primary-600">
                         {formatCurrency(product.price)}

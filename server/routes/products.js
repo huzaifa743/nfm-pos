@@ -146,7 +146,7 @@ router.post('/', authenticateToken, preventDemoModifications, requireTenant, get
       await ensureStockTrackingColumn(req.db, tenantCode);
     }
 
-    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled } = req.body;
+    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity } = req.body;
 
     if (!name || !price) {
       return res.status(400).json({ error: 'Name and price are required' });
@@ -156,10 +156,12 @@ router.post('/', authenticateToken, preventDemoModifications, requireTenant, get
     const expiry = expiry_date && String(expiry_date).trim() ? String(expiry_date).trim() : null;
     const barcodeValue = barcode && String(barcode).trim() ? String(barcode).trim() : null;
     const stockTracking = stock_tracking_enabled === 'true' || stock_tracking_enabled === true ? 1 : 0;
+    // Use provided stock_quantity if stock tracking is enabled, otherwise default to 0
+    const stockQty = stockTracking ? (parseInt(stock_quantity) || 0) : 0;
 
     const result = await req.db.run(
       'INSERT INTO products (name, price, category_id, image, description, stock_quantity, expiry_date, barcode, stock_tracking_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, parseFloat(price), category_id || null, image, description || null, 0, expiry, barcodeValue, stockTracking]
+      [name, parseFloat(price), category_id || null, image, description || null, stockQty, expiry, barcodeValue, stockTracking]
     );
 
     const product = await req.db.get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [result.id]);
@@ -181,11 +183,22 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
       await ensureStockTrackingColumn(req.db, tenantCode);
     }
 
-    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled } = req.body;
+    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity } = req.body;
     const productId = req.params.id;
     const expiry = expiry_date != null && String(expiry_date).trim() ? String(expiry_date).trim() : null;
     const barcodeValue = barcode != null && String(barcode).trim() ? String(barcode).trim() : null;
     const stockTracking = stock_tracking_enabled === 'true' || stock_tracking_enabled === true ? 1 : 0;
+    
+    // Get current product to preserve stock_quantity if stock tracking is being disabled
+    const currentProduct = await req.db.get('SELECT stock_tracking_enabled, stock_quantity FROM products WHERE id = ?', [productId]);
+    let stockQty = currentProduct?.stock_quantity || 0;
+    
+    // If stock tracking is enabled, use the provided stock_quantity, otherwise keep current or set to 0
+    if (stockTracking && stock_quantity != null) {
+      stockQty = parseInt(stock_quantity) || 0;
+    } else if (!stockTracking) {
+      stockQty = 0; // Reset to 0 if stock tracking is disabled
+    }
 
     let image = null;
     if (req.file) {
@@ -201,11 +214,11 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
     }
 
     await req.db.run(
-      'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, expiry_date = ?, barcode = ?, stock_tracking_enabled = ?, updated_at = CURRENT_TIMESTAMP' +
+      'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, expiry_date = ?, barcode = ?, stock_tracking_enabled = ?, stock_quantity = ?, updated_at = CURRENT_TIMESTAMP' +
       (image ? ', image = ?' : '') + ' WHERE id = ?',
       image
-        ? [name, parseFloat(price), category_id || null, description || null, expiry, barcodeValue, stockTracking, image, productId]
-        : [name, parseFloat(price), category_id || null, description || null, expiry, barcodeValue, stockTracking, productId]
+        ? [name, parseFloat(price), category_id || null, description || null, expiry, barcodeValue, stockTracking, stockQty, image, productId]
+        : [name, parseFloat(price), category_id || null, description || null, expiry, barcodeValue, stockTracking, stockQty, productId]
     );
 
     const product = await req.db.get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [productId]);

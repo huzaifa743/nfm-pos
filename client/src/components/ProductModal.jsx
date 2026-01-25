@@ -26,6 +26,7 @@ export default function ProductModal({
     add_barcode: false,
     barcode: '',
     stock_tracking_enabled: false,
+    stock_quantity: '0',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -43,6 +44,7 @@ export default function ProductModal({
         add_barcode: !!editingProduct.barcode,
         barcode: editingProduct.barcode || '',
         stock_tracking_enabled: editingProduct.stock_tracking_enabled === 1 || editingProduct.stock_tracking_enabled === true,
+        stock_quantity: String(editingProduct.stock_quantity || 0),
       });
     } else {
       setForm({
@@ -56,6 +58,7 @@ export default function ProductModal({
         add_barcode: false,
         barcode: '',
         stock_tracking_enabled: false,
+        stock_quantity: '0',
       });
     }
   }, [open, editingProduct, initialCategoryId]);
@@ -92,6 +95,7 @@ export default function ProductModal({
         form.add_barcode && form.barcode ? form.barcode : ''
       );
       formData.append('stock_tracking_enabled', form.stock_tracking_enabled ? 'true' : 'false');
+      formData.append('stock_quantity', form.stock_tracking_enabled ? String(form.stock_quantity || 0) : '0');
 
       let product;
       if (editingProduct) {
@@ -120,6 +124,7 @@ export default function ProductModal({
         add_barcode: false,
         barcode: '',
         stock_tracking_enabled: false,
+        stock_quantity: '0',
       });
     } catch (err) {
       console.error('Product save error:', err);
@@ -142,6 +147,7 @@ export default function ProductModal({
       add_barcode: false,
       barcode: '',
       stock_tracking_enabled: false,
+      stock_quantity: '0',
     });
   };
 
@@ -306,9 +312,29 @@ export default function ProductModal({
               />
               <span className="text-sm font-medium text-gray-700">Enable Stock Tracking (Optional)</span>
             </label>
-            <p className="text-xs text-gray-500 ml-6">
-              When enabled, stock quantity will be automatically deducted when this product is sold.
-            </p>
+            {form.stock_tracking_enabled && (
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Initial Stock Quantity *</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  required={form.stock_tracking_enabled}
+                  value={form.stock_quantity}
+                  onChange={(e) => handleChange('stock_quantity', e.target.value)}
+                  placeholder="Enter initial stock quantity"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Stock will be automatically deducted when this product is sold.
+                </p>
+              </div>
+            )}
+            {!form.stock_tracking_enabled && (
+              <p className="text-xs text-gray-500 ml-6">
+                When enabled, stock quantity will be automatically deducted when this product is sold.
+              </p>
+            )}
           </div>
 
           <div className="flex gap-3">
