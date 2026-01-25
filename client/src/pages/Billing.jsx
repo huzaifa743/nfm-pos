@@ -339,50 +339,50 @@ export default function Billing() {
         </div>
 
         {/* Cart Items */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-3">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4">
           {cart.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
               {t('billing.emptyCart')}
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {cart.map((item) => (
                 <div
                   key={item.id}
-                  className="bg-gray-50 rounded-lg p-2 border border-gray-200"
+                  className="bg-gray-50 rounded-lg p-3 border border-gray-200"
                 >
-                  <div className="flex items-start gap-2 mb-1.5">
+                  <div className="flex items-start gap-3 mb-2">
                     {item.product_image && (
                       <img
                         src={getImageURL(item.product_image)}
                         alt={item.product_name}
-                        className="w-10 h-10 object-cover rounded flex-shrink-0"
+                        className="w-12 h-12 object-cover rounded flex-shrink-0"
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-800 text-xs leading-tight truncate">
+                      <p className="font-medium text-gray-800 text-sm leading-tight">
                         {item.product_name}
                       </p>
-                      <p className="text-xs text-gray-500 truncate">{item.category_name}</p>
+                      <p className="text-xs text-gray-500">{item.category_name}</p>
                     </div>
                     <button
                       onClick={() => removeFromCart(item.id)}
                       className="text-red-600 hover:text-red-700 flex-shrink-0"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between mt-1.5">
-                    <div className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => {
                           const newQty = Math.max(0.01, parseFloat((item.quantity - 0.1).toFixed(2)));
                           updateQuantity(item.id, newQty);
                         }}
-                        className="w-6 h-6 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300"
+                        className="w-7 h-7 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300"
                       >
-                        <Minus className="w-3 h-3" />
+                        <Minus className="w-4 h-4" />
                       </button>
                       <input
                         type="number"
@@ -404,7 +404,7 @@ export default function Billing() {
                           const value = parseFloat(e.target.value) || 0.01;
                           updateQuantity(item.id, Math.max(0.01, value));
                         }}
-                        className="w-14 px-1.5 py-0.5 border border-gray-300 rounded text-xs text-center focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                        className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500 focus:outline-none"
                         step="0.01"
                         min="0.01"
                         placeholder="0.00"
@@ -414,13 +414,13 @@ export default function Billing() {
                           const newQty = parseFloat((item.quantity + 0.1).toFixed(2));
                           updateQuantity(item.id, newQty);
                         }}
-                        className="w-6 h-6 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300"
+                        className="w-7 h-7 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300"
                       >
-                        <Plus className="w-3 h-3" />
+                        <Plus className="w-4 h-4" />
                       </button>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
                       <input
                         type="number"
                         value={item.unit_price}
@@ -441,12 +441,12 @@ export default function Billing() {
                           const value = parseFloat(e.target.value) || 0;
                           updatePrice(item.id, value);
                         }}
-                        className="w-18 px-1.5 py-0.5 border border-gray-300 rounded text-xs text-right focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                        className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-right focus:ring-2 focus:ring-primary-500 focus:outline-none"
                         step="0.01"
                         min="0"
                         placeholder="0.00"
                       />
-                      <span className="font-semibold text-gray-800 min-w-[55px] text-right text-xs">
+                      <span className="font-semibold text-gray-800 min-w-[60px] text-right">
                         {formatCurrency(item.total_price)}
                       </span>
                     </div>
@@ -511,14 +511,23 @@ export default function Billing() {
               </button>
             </div>
 
-            {/* Receipt Button */}
-            <button
-              onClick={() => setShowReceipt(true)}
-              className="w-full px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors flex items-center justify-center gap-2 text-xs font-semibold"
-            >
-              <Receipt className="w-4 h-4" />
-              View Receipt
-            </button>
+            {/* Checkout and Receipt Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={handleCheckout}
+                className="flex-1 bg-primary-600 text-white py-2.5 rounded-lg font-semibold hover:bg-primary-700 transition-colors text-sm flex items-center justify-center gap-2"
+              >
+                <Receipt className="w-4 h-4" />
+                {t('billing.checkout')}
+              </button>
+              <button
+                onClick={() => setShowReceipt(true)}
+                className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors flex items-center justify-center gap-2 text-sm font-semibold"
+              >
+                <Receipt className="w-4 h-4" />
+                View Receipt
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -576,38 +585,6 @@ export default function Billing() {
                 <Plus className="w-4 h-4" />
               </button>
             </div>
-          </div>
-          
-          {/* Action Buttons Row */}
-          <div className="flex gap-2 mb-3">
-            <button
-              onClick={handleCheckout}
-              className="flex-1 bg-primary-600 text-white py-2.5 rounded-lg font-semibold hover:bg-primary-700 transition-colors text-sm flex items-center justify-center gap-2"
-            >
-              <Receipt className="w-4 h-4" />
-              {t('billing.checkout')}
-            </button>
-            <button
-              onClick={() => toast.info('Hold Sale feature coming soon')}
-              className="px-4 py-2.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-semibold flex items-center justify-center gap-2 text-sm"
-            >
-              <Save className="w-4 h-4" />
-              Hold Sale
-            </button>
-            <button
-              onClick={() => toast.info('View Hold Sale feature coming soon')}
-              className="px-4 py-2.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors font-semibold flex items-center justify-center gap-2 text-sm"
-            >
-              <Eye className="w-4 h-4" />
-              View Hold
-            </button>
-            <button
-              onClick={() => toast.info('Split Payment feature coming soon')}
-              className="px-4 py-2.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-semibold flex items-center justify-center gap-2 text-sm"
-            >
-              <CreditCard className="w-4 h-4" />
-              Split Payment
-            </button>
           </div>
         </div>
 
@@ -697,6 +674,33 @@ export default function Billing() {
               No products found
             </div>
           )}
+        </div>
+
+        {/* Bottom Action Buttons Bar */}
+        <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-gray-50">
+          <div className="flex gap-2">
+            <button
+              onClick={() => toast.info('Hold Sale feature coming soon')}
+              className="flex-1 px-4 py-2.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-semibold flex items-center justify-center gap-2 text-sm"
+            >
+              <Save className="w-4 h-4" />
+              Hold Sale
+            </button>
+            <button
+              onClick={() => toast.info('View Hold Sale feature coming soon')}
+              className="flex-1 px-4 py-2.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors font-semibold flex items-center justify-center gap-2 text-sm"
+            >
+              <Eye className="w-4 h-4" />
+              View Hold Sale
+            </button>
+            <button
+              onClick={() => toast.info('Split Payment feature coming soon')}
+              className="flex-1 px-4 py-2.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-semibold flex items-center justify-center gap-2 text-sm"
+            >
+              <CreditCard className="w-4 h-4" />
+              Split Payment
+            </button>
+          </div>
         </div>
       </div>
 
