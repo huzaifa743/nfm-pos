@@ -24,6 +24,14 @@ export default function Deliveries() {
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [editingNotes, setEditingNotes] = useState(false);
 
+  // Helper: check if there is any non-zero settlement value to show
+  const hasSettlementData = settlementData.some((s) => {
+    const pending = Number(s.pending_settlement || 0);
+    const collected = Number(s.total_collected || 0);
+    const settled = Number(s.total_settled || 0);
+    return pending > 0 || collected > 0 || settled > 0;
+  });
+
   useEffect(() => {
     fetchDeliveries();
     fetchDeliveryBoys();
@@ -326,8 +334,12 @@ export default function Deliveries() {
       {/* Settlement Summary (Admin Only) */}
       {showSettlement && user?.role === 'admin' && (
         <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">End of Day Settlement</h2>
-          {settlementData.length > 0 ? (
+          <h2 className="text-xl font-bold text-gray-800 mb-1">End of Day Settlement</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Shows only <span className="font-semibold">Pay After Delivery</span> orders that have been marked as{' '}
+            <span className="font-semibold">Payment Collected</span> for the selected date.
+          </p>
+          {settlementData.length > 0 && hasSettlementData ? (
             <div className="space-y-4">
               {settlementData.map((settlement) => (
                 <div key={settlement.delivery_boy_id} className="border border-gray-200 rounded-lg p-4">
@@ -380,7 +392,9 @@ export default function Deliveries() {
               </button>
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-4">No settlement data for selected date</p>
+            <p className="text-gray-500 text-center py-4">
+              No collected payments to settle for the selected date.
+            </p>
           )}
         </div>
       )}
