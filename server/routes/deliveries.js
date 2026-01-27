@@ -20,8 +20,6 @@ async function ensureDeliveryColumns(db, tenantCode) {
   deliveryMigratedTenants.add(tenantCode);
 }
 
-const router = express.Router();
-
 // Get all deliveries (for Pay After Delivery orders)
 router.get('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
