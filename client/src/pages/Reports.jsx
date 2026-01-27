@@ -31,7 +31,6 @@ export default function Reports() {
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
   const [paymentMethod, setPaymentMethod] = useState('');
-  const [orderType, setOrderType] = useState('');
   const [salesReport, setSalesReport] = useState(null);
   const [productReport, setProductReport] = useState(null);
   const [usersReport, setUsersReport] = useState(null);
@@ -43,7 +42,7 @@ export default function Reports() {
       fetchReports();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportType, startDate, endDate, paymentMethod, orderType]);
+  }, [reportType, startDate, endDate, paymentMethod]);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -55,7 +54,6 @@ export default function Reports() {
 
       if (reportType === 'sales') {
         if (paymentMethod) params.payment_method = paymentMethod;
-        if (orderType) params.order_type = orderType;
         const response = await api.get('/reports/sales', { params });
         setSalesReport(response.data);
         setProductReport(null);
@@ -152,22 +150,6 @@ export default function Reports() {
                 <option value="card">Card</option>
                 <option value="online">Online</option>
                 <option value="payAfterDelivery">Pay After Delivery</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Order Type
-              </label>
-              <select
-                value={orderType}
-                onChange={(e) => setOrderType(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="">All Types</option>
-                <option value="dine-in">Dine In</option>
-                <option value="takeaway">Takeaway</option>
-                <option value="delivery">Delivery</option>
               </select>
             </div>
           </div>

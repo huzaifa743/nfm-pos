@@ -7,7 +7,7 @@ const router = express.Router();
 // Get sales report
 router.get('/sales', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
-    const { start_date, end_date, payment_method, order_type } = req.query;
+    const { start_date, end_date, payment_method } = req.query;
 
     let sql = `SELECT s.*, u.username as user_name, c.name as customer_name,
                (SELECT COUNT(*) FROM sale_items WHERE sale_id = s.id) as item_count
@@ -30,11 +30,6 @@ router.get('/sales', authenticateToken, requireTenant, getTenantDb, closeTenantD
     if (payment_method) {
       sql += ' AND s.payment_method = ?';
       params.push(payment_method);
-    }
-
-    if (order_type) {
-      sql += ' AND s.order_type = ?';
-      params.push(order_type);
     }
 
     sql += ' ORDER BY s.created_at DESC';

@@ -78,6 +78,23 @@ export default function Billing() {
 
       const response = await api.get('/products', { params });
       setProducts(response.data);
+      
+      // Update cart items with latest stock information
+      if (cart.length > 0) {
+        setCart(
+          cart.map((cartItem) => {
+            const product = response.data.find((p) => p.id === cartItem.product_id);
+            if (product) {
+              return {
+                ...cartItem,
+                stock_tracking_enabled: product.stock_tracking_enabled || 0,
+                stock_quantity: product.stock_quantity !== null && product.stock_quantity !== undefined ? product.stock_quantity : null,
+              };
+            }
+            return cartItem;
+          })
+        );
+      }
     } catch (error) {
       const errorMessage = error.response?.data?.error || error.message || 'Unknown error';
       console.error('Error fetching products:', errorMessage, error);
@@ -100,9 +117,26 @@ export default function Billing() {
   };
 
   const addToCart = (product, silent = false) => {
+    // Check if product has stock tracking enabled and if stock is available
+    if (product.stock_tracking_enabled === 1 && product.stock_quantity !== null && product.stock_quantity <= 0) {
+      toast.error(`${product.name} is out of stock`);
+      return;
+    }
+
     const existingItem = cart.find((item) => item.product_id === product.id);
 
     if (existingItem) {
+      // Check stock before increasing quantity
+      if (product.stock_tracking_enabled === 1 && product.stock_quantity !== null) {
+        const currentCartQty = cart.reduce((sum, item) => {
+          if (item.product_id === product.id) return sum + item.quantity;
+          return sum;
+        }, 0);
+        if (currentCartQty >= product.stock_quantity) {
+          toast.error(`Only ${product.stock_quantity} units available in stock`);
+          return;
+        }
+      }
       updateQuantity(existingItem.id, existingItem.quantity + 1);
     } else {
       setCart([
@@ -116,6 +150,8 @@ export default function Billing() {
           unit_price: parseFloat(product.price),
           quantity: 1,
           total_price: parseFloat(product.price),
+          stock_tracking_enabled: product.stock_tracking_enabled || 0,
+          stock_quantity: product.stock_quantity || null,
         },
       ]);
       if (!silent) toast.success('Product added to cart');
@@ -171,6 +207,20 @@ export default function Billing() {
     setCart(
       cart.map((item) => {
         if (item.id === id) {
+          // Check stock availability if stock tracking is enabled
+          if (item.stock_tracking_enabled === 1 && item.stock_quantity !== null && item.stock_quantity !== undefined) {
+            // Calculate total quantity of this product in cart (excluding current item)
+            const otherItemsQty = cart
+              .filter(cartItem => cartItem.product_id === item.product_id && cartItem.id !== id)
+              .reduce((sum, cartItem) => sum + cartItem.quantity, 0);
+            
+            const requestedTotalQty = otherItemsQty + quantity;
+            if (requestedTotalQty > item.stock_quantity) {
+              toast.error(`Only ${item.stock_quantity} units available in stock`);
+              return item; // Return unchanged item
+            }
+          }
+          
           const newTotal = parseFloat((item.unit_price * quantity).toFixed(2));
           return { ...item, quantity: parseFloat(quantity.toFixed(2)), total_price: newTotal };
         }
@@ -280,6 +330,35 @@ export default function Billing() {
 
       const { subtotal, discount, vat, total } = calculateTotals();
 
+      // Validate stock before proceeding
+      for (const item of cart) {
+        if (item.stock_tracking_enabled === 1 && item.stock_quantity !== null && item.stock_quantity !== undefined) {
+          if (item.quantity > item.stock_quantity) {
+            toast.error(`${item.product_name} is out of stock. Available: ${item.stock_quantity}`);
+            return;
+          }
+        }
+      }
+      
+      // Final stock validation - fetch latest stock from server
+      for (const item of cart) {
+        try {
+          const productResponse = await api.get(`/products/${item.product_id}`);
+          const product = productResponse.data;
+          if (product.stock_tracking_enabled === 1 && product.stock_quantity !== null && product.stock_quantity !== undefined) {
+            if (item.quantity > product.stock_quantity) {
+              toast.error(`${item.product_name} is out of stock. Available: ${product.stock_quantity}`);
+              return;
+            }
+          }
+        } catch (error) {
+          if (error.response?.status === 404) {
+            toast.error(`Product ${item.product_name} not found`);
+            return;
+          }
+        }
+      }
+
       // For split payment, we'll use the first payment method as primary
       // and store all payments in a notes field or create multiple payment records
       const primaryPayment = paymentData.payments[0];
@@ -339,7 +418,7 @@ export default function Billing() {
 
       const { subtotal, discount, vat, total } = calculateTotals();
 
-      // Validate cart items
+      // Validate cart items and check stock availability
       const validatedItems = cart.map((item) => {
         if (!item.product_id || !item.product_name) {
           throw new Error(`Invalid item: missing product information`);
@@ -350,6 +429,14 @@ export default function Billing() {
         if (!item.unit_price || item.unit_price < 0) {
           throw new Error(`Invalid price for ${item.product_name}`);
         }
+        
+        // Check stock availability if stock tracking is enabled
+        if (item.stock_tracking_enabled === 1 && item.stock_quantity !== null && item.stock_quantity !== undefined) {
+          if (item.quantity > item.stock_quantity) {
+            throw new Error(`${item.product_name} is out of stock. Available: ${item.stock_quantity}`);
+          }
+        }
+        
         return {
           product_id: item.product_id,
           product_name: item.product_name,
@@ -358,6 +445,26 @@ export default function Billing() {
           total_price: parseFloat(item.total_price),
         };
       });
+      
+      // Final stock validation - fetch latest stock from server
+      for (const item of validatedItems) {
+        try {
+          const productResponse = await api.get(`/products/${item.product_id}`);
+          const product = productResponse.data;
+          if (product.stock_tracking_enabled === 1 && product.stock_quantity !== null && product.stock_quantity !== undefined) {
+            if (item.quantity > product.stock_quantity) {
+              throw new Error(`${item.product_name} is out of stock. Available: ${product.stock_quantity}`);
+            }
+          }
+        } catch (error) {
+          if (error.response?.status === 404) {
+            throw new Error(`Product ${item.product_name} not found`);
+          }
+          if (error.message.includes('out of stock')) {
+            throw error;
+          }
+        }
+      }
 
       const saleData = {
         customer_id: selectedCustomer?.id || null,
@@ -551,20 +658,42 @@ export default function Billing() {
                         value={item.quantity}
                         onChange={(e) => {
                           const value = e.target.value;
-                          // Allow empty input for continuous typing
+                          // Allow empty input for continuous typing (don't update quantity yet)
                           if (value === '' || value === '.') {
-                            updateQuantity(item.id, 0);
+                            // Update the display value but don't recalculate price yet
+                            setCart(
+                              cart.map((cartItem) => {
+                                if (cartItem.id === item.id) {
+                                  return { ...cartItem, quantity: value === '' ? '' : '.' };
+                                }
+                                return cartItem;
+                              })
+                            );
                             return;
                           }
                           const numValue = parseFloat(value);
-                          if (!isNaN(numValue) && numValue >= 0) {
+                          if (!isNaN(numValue) && numValue > 0) {
                             updateQuantity(item.id, numValue);
+                          } else if (numValue === 0) {
+                            // If user types 0, don't remove immediately - wait for blur
+                            setCart(
+                              cart.map((cartItem) => {
+                                if (cartItem.id === item.id) {
+                                  return { ...cartItem, quantity: 0 };
+                                }
+                                return cartItem;
+                              })
+                            );
                           }
                         }}
                         onBlur={(e) => {
-                          // Ensure value is set on blur if empty
-                          const value = parseFloat(e.target.value) || 0.01;
-                          updateQuantity(item.id, Math.max(0.01, value));
+                          // Ensure value is set on blur if empty or invalid
+                          const value = parseFloat(e.target.value);
+                          if (isNaN(value) || value <= 0) {
+                            updateQuantity(item.id, 0.01);
+                          } else {
+                            updateQuantity(item.id, value);
+                          }
                         }}
                         className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500 focus:outline-none"
                         step="0.01"
@@ -774,8 +903,18 @@ export default function Billing() {
                 return (
                   <div
                     key={product.id}
-                    className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => addToCart(product)}
+                    className={`bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow ${
+                      product.stock_tracking_enabled === 1 && product.stock_quantity !== null && product.stock_quantity <= 0
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'cursor-pointer'
+                    }`}
+                    onClick={() => {
+                      if (product.stock_tracking_enabled === 1 && product.stock_quantity !== null && product.stock_quantity <= 0) {
+                        toast.error(`${product.name} is out of stock`);
+                        return;
+                      }
+                      addToCart(product);
+                    }}
                   >
                     <h3 className="font-medium text-gray-800 text-sm mb-1">
                       {product.name}
@@ -799,7 +938,7 @@ export default function Billing() {
                       {product.stock_tracking_enabled === 1 && (
                         <div className="text-xs">
                           <span className={`font-medium ${product.stock_quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            Stock: {product.stock_quantity || 0}
+                            {product.stock_quantity > 0 ? `Stock: ${product.stock_quantity}` : 'Out of Stock'}
                           </span>
                         </div>
                       )}
