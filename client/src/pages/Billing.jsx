@@ -89,23 +89,28 @@ export default function Billing() {
 
       const response = await api.get('/products', { params });
       setProducts(response.data);
-      
-      // Update cart items with latest stock information
-      if (cart.length > 0) {
-        setCart(
-          cart.map((cartItem) => {
-            const product = response.data.find((p) => p.id === cartItem.product_id);
-            if (product) {
-              return {
-                ...cartItem,
-                stock_tracking_enabled: product.stock_tracking_enabled || 0,
-                stock_quantity: product.stock_quantity !== null && product.stock_quantity !== undefined ? product.stock_quantity : null,
-              };
-            }
-            return cartItem;
-          })
-        );
-      }
+
+      // Update cart items with latest stock information.
+      // Use functional update to avoid using a stale `cart` snapshot,
+      // so if the cart was cleared after a completed sale it stays empty.
+      setCart((prevCart) => {
+        if (prevCart.length === 0) return prevCart;
+
+        return prevCart.map((cartItem) => {
+          const product = response.data.find((p) => p.id === cartItem.product_id);
+          if (product) {
+            return {
+              ...cartItem,
+              stock_tracking_enabled: product.stock_tracking_enabled || 0,
+              stock_quantity:
+                product.stock_quantity !== null && product.stock_quantity !== undefined
+                  ? product.stock_quantity
+                  : null,
+            };
+          }
+          return cartItem;
+        });
+      });
     } catch (error) {
       const errorMessage = error.response?.data?.error || error.message || 'Unknown error';
       console.error('Error fetching products:', errorMessage, error);
