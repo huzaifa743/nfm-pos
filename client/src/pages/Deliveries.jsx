@@ -91,6 +91,33 @@ export default function Deliveries() {
     }
   };
 
+  const handleCollectAllPending = async () => {
+    // Collect all payment_pending deliveries for current filters (date/status/driver/search)
+    const pendingDeliveries = deliveries.filter((delivery) => {
+      if (delivery.delivery_status !== 'payment_pending') return false;
+      if (deliveryBoyFilter && String(delivery.delivery_boy_id) !== String(deliveryBoyFilter)) return false;
+      return true;
+    });
+
+    if (pendingDeliveries.length === 0) {
+      toast.error('No payment pending deliveries to collect for current filters');
+      return;
+    }
+
+    try {
+      await Promise.all(
+        pendingDeliveries.map((delivery) =>
+          api.put(`/deliveries/${delivery.id}/status`, { status: 'payment_received' })
+        )
+      );
+      toast.success(`Collected payment for ${pendingDeliveries.length} delivery(ies)`);
+      fetchDeliveries();
+    } catch (error) {
+      console.error('Error collecting all pending payments:', error);
+      toast.error(error.response?.data?.error || 'Failed to collect all pending payments');
+    }
+  };
+
   const handleViewDetails = async (delivery) => {
     try {
       const response = await api.get(`/sales/${delivery.id}`);
@@ -259,12 +286,21 @@ export default function Deliveries() {
             </select>
           </div>
           <div className="flex items-end">
-            <button
-              onClick={fetchDeliveries}
-              className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-            >
-              Filter
-            </button>
+            <div className="w-full flex flex-col gap-2">
+              <button
+                onClick={fetchDeliveries}
+                className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              >
+                Filter
+              </button>
+              <button
+                type="button"
+                onClick={handleCollectAllPending}
+                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+              >
+                Collect All Pending
+              </button>
+            </div>
           </div>
         </div>
       </div>
