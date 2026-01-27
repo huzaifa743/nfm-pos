@@ -9,6 +9,7 @@ import {
   History,
   BarChart3,
   Users,
+  User,
   Settings,
   Building2,
   X,
