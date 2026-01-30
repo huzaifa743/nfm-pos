@@ -638,16 +638,6 @@ export default function Billing() {
                 : t('billing.selectCustomer')}
             </button>
           </div>
-          <div className="mb-0">
-            <label className="block text-xs font-medium text-gray-600 mb-1">Sale Date</label>
-            <input
-              type="date"
-              value={saleDate}
-              onChange={(e) => setSaleDate(e.target.value)}
-              max={new Date().toISOString().slice(0, 10)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none"
-            />
-          </div>
         </div>
 
         {/* Cart Items */}
@@ -949,8 +939,8 @@ export default function Billing() {
       {/* Products Section - Right Side - Scrolls only */}
       <div className="flex-1 min-h-0 flex flex-col bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
         <div className="flex-shrink-0 p-4 pb-0">
-          <div className="flex gap-3 mb-3">
-            {/* Category Selection - Left Side, Bigger */}
+          <div className="flex items-center gap-3 mb-3 flex-wrap">
+            {/* Category Selection - Left */}
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
@@ -963,8 +953,8 @@ export default function Billing() {
                 </option>
               ))}
             </select>
-            
-            {/* Barcode Scanner and Search - Right Side */}
+
+            {/* Barcode Scanner and Search - Middle */}
             <div className="flex-1 flex items-center gap-2">
               {/* Barcode Scanner */}
               <div className="relative w-48">
@@ -998,6 +988,18 @@ export default function Billing() {
               >
                 <Plus className="w-4 h-4" />
               </button>
+            </div>
+
+            {/* Sale Date - Right side of row */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Sale Date</label>
+              <input
+                type="date"
+                value={saleDate}
+                onChange={(e) => setSaleDate(e.target.value)}
+                max={new Date().toISOString().slice(0, 10)}
+                className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none"
+              />
             </div>
           </div>
         </div>
