@@ -940,7 +940,19 @@ export default function Billing() {
       <div className="flex-1 min-h-0 flex flex-col bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
         <div className="flex-shrink-0 p-4 pb-0">
           <div className="flex items-center gap-3 mb-3 flex-wrap">
-            {/* Category Selection - Left */}
+            {/* Sale Date - Left end of row */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Sale Date</label>
+              <input
+                type="date"
+                value={saleDate}
+                onChange={(e) => setSaleDate(e.target.value)}
+                max={new Date().toISOString().slice(0, 10)}
+                className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Category Selection */}
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
@@ -988,18 +1000,6 @@ export default function Billing() {
               >
                 <Plus className="w-4 h-4" />
               </button>
-            </div>
-
-            {/* Sale Date - Right side of row */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Sale Date</label>
-              <input
-                type="date"
-                value={saleDate}
-                onChange={(e) => setSaleDate(e.target.value)}
-                max={new Date().toISOString().slice(0, 10)}
-                className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none"
-              />
             </div>
           </div>
         </div>

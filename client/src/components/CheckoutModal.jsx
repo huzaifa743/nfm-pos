@@ -10,16 +10,11 @@ export default function CheckoutModal({ total, onClose, onConfirm, initialSaleDa
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentAmount, setPaymentAmount] = useState(total);
   const [customAmount, setCustomAmount] = useState('');
-  const [saleDate, setSaleDate] = useState(() => initialSaleDate || new Date().toISOString().slice(0, 10));
   const [deliveryBoys, setDeliveryBoys] = useState([]);
   const [selectedDeliveryBoy, setSelectedDeliveryBoy] = useState('');
   const [loadingDeliveryBoys, setLoadingDeliveryBoys] = useState(false);
 
   const quickAmounts = [10, 20, 50, 100, 200, 500];
-
-  useEffect(() => {
-    if (initialSaleDate) setSaleDate(initialSaleDate);
-  }, [initialSaleDate]);
 
   useEffect(() => {
     if (paymentMethod === 'payAfterDelivery') {
@@ -61,7 +56,7 @@ export default function CheckoutModal({ total, onClose, onConfirm, initialSaleDa
       amount: paymentAmount,
       change: changeAmount > 0 ? changeAmount : 0,
       delivery_boy_id: paymentMethod === 'payAfterDelivery' ? parseInt(selectedDeliveryBoy) : null,
-      sale_date: saleDate,
+      sale_date: initialSaleDate || new Date().toISOString().slice(0, 10),
     });
   };
 
@@ -86,20 +81,6 @@ export default function CheckoutModal({ total, onClose, onConfirm, initialSaleDa
                 {formatCurrency(total)}
               </span>
             </div>
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Sale Date
-            </label>
-            <input
-              type="date"
-              value={saleDate}
-              onChange={(e) => setSaleDate(e.target.value)}
-              max={new Date().toISOString().slice(0, 10)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">Use today or a previous date for this sale</p>
           </div>
 
           <div className="mb-4">
