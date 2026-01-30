@@ -184,6 +184,12 @@ export default function Inventory() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Purchase Rate
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Has Weight
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Weight Unit
+                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -243,6 +249,22 @@ export default function Inventory() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {product.purchase_rate ? (
                         <span>{formatCurrency(product.purchase_rate)}</span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {product.has_weight === 1 || product.has_weight === true ? (
+                        <span className="px-2 py-1 bg-amber-100 text-amber-800 rounded text-xs font-medium">
+                          Yes
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">No</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.has_weight === 1 || product.has_weight === true ? (
+                        product.weight_unit === 'kg' ? 'kg' : 'gram'
                       ) : (
                         <span className="text-gray-400">—</span>
                       )}

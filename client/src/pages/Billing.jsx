@@ -106,6 +106,8 @@ export default function Billing() {
                 product.stock_quantity !== null && product.stock_quantity !== undefined
                   ? product.stock_quantity
                   : null,
+              has_weight: product.has_weight === 1 || product.has_weight === true ? 1 : 0,
+              weight_unit: product.weight_unit || 'gram',
             };
           }
           return cartItem;
@@ -153,8 +155,13 @@ export default function Billing() {
           return;
         }
       }
-      updateQuantity(existingItem.id, existingItem.quantity + 1);
+      const hasWeight = product.has_weight === 1 || product.has_weight === true;
+      const increment = hasWeight ? 0.1 : 1; // 100g for weighted
+      updateQuantity(existingItem.id, parseFloat((existingItem.quantity + increment).toFixed(4)));
     } else {
+      const hasWeight = product.has_weight === 1 || product.has_weight === true;
+      const initialQty = hasWeight ? 0.1 : 1; // 100g default for weighted products
+      const unitPrice = parseFloat(product.price);
       setCart([
         ...cart,
         {
@@ -163,11 +170,13 @@ export default function Billing() {
           product_name: product.name,
           product_image: product.image,
           category_name: product.category_name || '',
-          unit_price: parseFloat(product.price),
-          quantity: 1,
-          total_price: parseFloat(product.price),
+          unit_price: unitPrice,
+          quantity: initialQty,
+          total_price: parseFloat((unitPrice * initialQty).toFixed(2)),
           stock_tracking_enabled: product.stock_tracking_enabled || 0,
           stock_quantity: product.stock_quantity || null,
+          has_weight: hasWeight ? 1 : 0,
+          weight_unit: product.weight_unit || 'gram',
         },
       ]);
       if (!silent) toast.success('Product added to cart');
@@ -666,69 +675,91 @@ export default function Billing() {
                   </div>
 
                   <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <button
                         onClick={() => {
-                          const newQty = Math.max(0.01, parseFloat((item.quantity - 0.1).toFixed(2)));
+                          const step = item.has_weight ? 0.1 : 1;
+                          const minQty = item.has_weight ? 0.001 : 0.01;
+                          const newQty = Math.max(minQty, parseFloat((item.quantity - step).toFixed(4)));
                           updateQuantity(item.id, newQty);
                         }}
-                        className="w-7 h-7 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300"
+                        className="w-7 h-7 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300 flex-shrink-0"
                       >
                         <Minus className="w-4 h-4" />
                       </button>
-                      <input
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          // Allow empty input for continuous typing (don't update quantity yet)
-                          if (value === '' || value === '.') {
-                            // Update the display value but don't recalculate price yet
-                            setCart(
-                              cart.map((cartItem) => {
-                                if (cartItem.id === item.id) {
-                                  return { ...cartItem, quantity: value === '' ? '' : '.' };
-                                }
-                                return cartItem;
-                              })
-                            );
-                            return;
-                          }
-                          const numValue = parseFloat(value);
-                          if (!isNaN(numValue) && numValue > 0) {
-                            updateQuantity(item.id, numValue);
-                          } else if (numValue === 0) {
-                            // If user types 0, don't remove immediately - wait for blur
-                            setCart(
-                              cart.map((cartItem) => {
-                                if (cartItem.id === item.id) {
-                                  return { ...cartItem, quantity: 0 };
-                                }
-                                return cartItem;
-                              })
-                            );
-                          }
-                        }}
-                        onBlur={(e) => {
-                          // Ensure value is set on blur if empty or invalid
-                          const value = parseFloat(e.target.value);
-                          if (isNaN(value) || value <= 0) {
-                            updateQuantity(item.id, 0.01);
-                          } else {
-                            updateQuantity(item.id, value);
-                          }
-                        }}
-                        className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500 focus:outline-none"
-                        step="0.01"
-                        min="0.01"
-                        placeholder="0.00"
-                      />
+                      {item.has_weight ? (
+                        <>
+                          <input
+                            type="number"
+                            step={item.weight_unit === 'kg' ? 0.1 : 1}
+                            min="0"
+                            value={item.weight_unit === 'kg' ? item.quantity : Math.round(item.quantity * 1000)}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              if (raw === '' || raw === '.') return;
+                              const num = parseFloat(raw);
+                              if (isNaN(num) || num < 0) return;
+                              const cartUnit = item.weight_unit || 'gram';
+                              const qtyKg = cartUnit === 'kg' ? num : num / 1000;
+                              if (qtyKg > 0) updateQuantity(item.id, parseFloat(qtyKg.toFixed(4)));
+                            }}
+                            onBlur={(e) => {
+                              const raw = e.target.value;
+                              const num = parseFloat(raw);
+                              if (isNaN(num) || num <= 0) updateQuantity(item.id, 0.001);
+                            }}
+                            className="w-14 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                            placeholder={item.weight_unit === 'kg' ? 'kg' : 'g'}
+                          />
+                          <select
+                            value={item.weight_unit || 'gram'}
+                            onChange={(e) => {
+                              const newUnit = e.target.value;
+                              setCart(cart.map((c) => (c.id === item.id ? { ...c, weight_unit: newUnit } : c)));
+                            }}
+                            className="px-1 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-primary-500"
+                          >
+                            <option value="gram">g</option>
+                            <option value="kg">kg</option>
+                          </select>
+                          <span className="text-xs text-gray-500 self-center whitespace-nowrap">
+                            {item.quantity >= 1
+                              ? `= ${item.quantity} kg`
+                              : `= ${Math.round(item.quantity * 1000)} g`}
+                          </span>
+                        </>
+                      ) : (
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || value === '.') {
+                              setCart(cart.map((c) => (c.id === item.id ? { ...c, quantity: value === '' ? '' : '.' } : c)));
+                              return;
+                            }
+                            const numValue = parseFloat(value);
+                            if (!isNaN(numValue) && numValue > 0) updateQuantity(item.id, numValue);
+                            else if (numValue === 0) setCart(cart.map((c) => (c.id === item.id ? { ...c, quantity: 0 } : c)));
+                          }}
+                          onBlur={(e) => {
+                            const value = parseFloat(e.target.value);
+                            if (isNaN(value) || value <= 0) updateQuantity(item.id, 0.01);
+                            else updateQuantity(item.id, value);
+                          }}
+                          className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                          step="0.01"
+                          min="0.01"
+                          placeholder="0.00"
+                        />
+                      )}
                       <button
                         onClick={() => {
-                          const newQty = parseFloat((item.quantity + 0.1).toFixed(2));
+                          const step = item.has_weight ? 0.1 : 1;
+                          const newQty = parseFloat((item.quantity + step).toFixed(4));
                           updateQuantity(item.id, newQty);
                         }}
-                        className="w-7 h-7 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300"
+                        className="w-7 h-7 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300 flex-shrink-0"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -981,8 +1012,12 @@ export default function Billing() {
                           >
                             <Minus className="w-3 h-3" />
                           </button>
-                          <span className="text-sm font-medium w-6 text-center">
-                            {cartItem.quantity}
+                          <span className="text-sm font-medium min-w-[2.5rem] text-center">
+                            {cartItem.has_weight
+                              ? cartItem.quantity >= 1
+                                ? `${cartItem.quantity} kg`
+                                : `${Math.round(cartItem.quantity * 1000)}g`
+                              : cartItem.quantity}
                           </span>
                           <button
                             onClick={(e) => {
@@ -1127,11 +1162,14 @@ export default function Billing() {
         onSuccess={(product) => {
           addToCart(
             {
+              ...product,
               id: product.id,
               name: product.name,
               image: product.image,
               category_name: product.category_name || '',
               price: parseFloat(product.price),
+              has_weight: product.has_weight === 1 || product.has_weight === true ? 1 : 0,
+              weight_unit: product.weight_unit || 'gram',
             },
             true
           );

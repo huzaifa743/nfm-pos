@@ -27,6 +27,8 @@ export default function ProductModal({
     stock_quantity: '0',
     purchase_rate: '',
     add_stock_quantity: false,
+    has_weight: false,
+    weight_unit: 'gram',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -45,6 +47,8 @@ export default function ProductModal({
         stock_quantity: String(editingProduct.stock_quantity || 0),
         purchase_rate: editingProduct.purchase_rate ? String(editingProduct.purchase_rate) : '',
         add_stock_quantity: editingProduct.stock_tracking_enabled === 1 || editingProduct.stock_tracking_enabled === true,
+        has_weight: editingProduct.has_weight === 1 || editingProduct.has_weight === true,
+        weight_unit: editingProduct.weight_unit === 'kg' ? 'kg' : 'gram',
       });
     } else {
       setForm({
@@ -59,6 +63,8 @@ export default function ProductModal({
         stock_quantity: '0',
         purchase_rate: '',
         add_stock_quantity: false,
+        has_weight: false,
+        weight_unit: 'gram',
       });
     }
   }, [open, editingProduct, initialCategoryId]);
@@ -106,6 +112,8 @@ export default function ProductModal({
       formData.append('stock_tracking_enabled', form.add_stock_quantity ? 'true' : 'false');
       formData.append('stock_quantity', form.add_stock_quantity ? String(form.stock_quantity || 0) : '0');
       formData.append('purchase_rate', form.purchase_rate ? String(form.purchase_rate) : '');
+      formData.append('has_weight', form.has_weight ? 'true' : 'false');
+      formData.append('weight_unit', form.has_weight ? form.weight_unit : '');
 
       let product;
       if (editingProduct) {
@@ -135,6 +143,8 @@ export default function ProductModal({
         stock_quantity: '0',
         purchase_rate: '',
         add_stock_quantity: false,
+        has_weight: false,
+        weight_unit: 'gram',
       });
     } catch (err) {
       console.error('Product save error:', err);
@@ -158,6 +168,8 @@ export default function ProductModal({
       stock_quantity: '0',
       purchase_rate: '',
       add_stock_quantity: false,
+      has_weight: false,
+      weight_unit: 'gram',
     });
   };
 
@@ -243,7 +255,7 @@ export default function ProductModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('inventory.productPrice')} *
+                {form.has_weight ? (t('inventory.pricePerKg') || 'Price (per kg) *') : `${t('inventory.productPrice')} *`}
               </label>
               <input
                 type="number"
@@ -254,6 +266,44 @@ export default function ProductModal({
                 onChange={(e) => handleChange('price', e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="flex items-center gap-2 cursor-pointer mb-2">
+                <input
+                  type="checkbox"
+                  checked={form.has_weight}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setForm((prev) => ({
+                      ...prev,
+                      has_weight: checked,
+                      ...(checked ? {} : { weight_unit: 'gram' }),
+                    }));
+                  }}
+                  className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="text-sm font-medium text-gray-700">{t('inventory.hasWeight') || 'Product has weight'}</span>
+              </label>
+              {form.has_weight ? (
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">{t('inventory.weightUnit') || 'Quantity unit in cart'}</label>
+                  <select
+                    value={form.weight_unit}
+                    onChange={(e) => handleChange('weight_unit', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="gram">Gram (e.g. 100, 200)</option>
+                    <option value="kg">Kilogram (e.g. 1, 2, 1.5)</option>
+                  </select>
+                </div>
+              ) : (
+                <div className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400 text-sm">
+                  {t('inventory.noWeight') || 'Sold by piece'}
+                </div>
+              )}
             </div>
           </div>
 

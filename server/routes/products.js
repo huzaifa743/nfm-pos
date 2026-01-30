@@ -11,6 +11,7 @@ const migratedTenants = new Set();
 const barcodeMigratedTenants = new Set();
 const stockTrackingMigratedTenants = new Set();
 const purchaseRateMigratedTenants = new Set();
+const hasWeightMigratedTenants = new Set();
 
 async function ensureExpiryDateColumn(db, tenantCode) {
   if (!tenantCode || migratedTenants.has(tenantCode)) return;
@@ -50,6 +51,21 @@ async function ensurePurchaseRateColumn(db, tenantCode) {
     if (!err.message || !err.message.includes('duplicate column')) throw err;
   }
   purchaseRateMigratedTenants.add(tenantCode);
+}
+
+async function ensureHasWeightColumns(db, tenantCode) {
+  if (!tenantCode || hasWeightMigratedTenants.has(tenantCode)) return;
+  try {
+    await db.run('ALTER TABLE products ADD COLUMN has_weight INTEGER DEFAULT 0');
+  } catch (err) {
+    if (!err.message || !err.message.includes('duplicate column')) throw err;
+  }
+  try {
+    await db.run('ALTER TABLE products ADD COLUMN weight_unit TEXT');
+  } catch (err) {
+    if (!err.message || !err.message.includes('duplicate column')) throw err;
+  }
+  hasWeightMigratedTenants.add(tenantCode);
 }
 
 // Configure multer for file uploads
@@ -92,6 +108,7 @@ router.get('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, as
       await ensureBarcodeColumn(req.db, tenantCode);
       await ensureStockTrackingColumn(req.db, tenantCode);
       await ensurePurchaseRateColumn(req.db, tenantCode);
+      await ensureHasWeightColumns(req.db, tenantCode);
     }
 
     const { category_id, search, barcode } = req.query;
@@ -131,6 +148,7 @@ router.get('/:id', authenticateToken, requireTenant, getTenantDb, closeTenantDb,
       await ensureBarcodeColumn(req.db, tenantCode);
       await ensureStockTrackingColumn(req.db, tenantCode);
       await ensurePurchaseRateColumn(req.db, tenantCode);
+      await ensureHasWeightColumns(req.db, tenantCode);
     }
 
     const product = await req.db.get(
@@ -158,9 +176,10 @@ router.post('/', authenticateToken, preventDemoModifications, requireTenant, get
       await ensureBarcodeColumn(req.db, tenantCode);
       await ensureStockTrackingColumn(req.db, tenantCode);
       await ensurePurchaseRateColumn(req.db, tenantCode);
+      await ensureHasWeightColumns(req.db, tenantCode);
     }
 
-    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity, purchase_rate } = req.body;
+    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity, purchase_rate, has_weight, weight_unit } = req.body;
 
     // Validate and trim name
     const trimmedName = name ? String(name).trim() : '';
@@ -185,10 +204,12 @@ router.post('/', authenticateToken, preventDemoModifications, requireTenant, get
     // Use provided stock_quantity if stock tracking is enabled, otherwise default to 0
     const stockQty = stockTracking ? (parseInt(stock_quantity) || 0) : 0;
     const purchaseRate = purchase_rate && !isNaN(parseFloat(purchase_rate)) ? parseFloat(purchase_rate) : null;
+    const hasWeight = has_weight === 'true' || has_weight === true ? 1 : 0;
+    const weightUnit = hasWeight && weight_unit === 'kg' ? 'kg' : (hasWeight ? 'gram' : null);
 
     const result = await req.db.run(
-      'INSERT INTO products (name, price, category_id, description, stock_quantity, expiry_date, barcode, stock_tracking_enabled, purchase_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [trimmedName, parsedPrice, category_id || null, description || null, stockQty, expiry, barcodeValue, stockTracking, purchaseRate]
+      'INSERT INTO products (name, price, category_id, description, stock_quantity, expiry_date, barcode, stock_tracking_enabled, purchase_rate, has_weight, weight_unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [trimmedName, parsedPrice, category_id || null, description || null, stockQty, expiry, barcodeValue, stockTracking, purchaseRate, hasWeight, weightUnit]
     );
 
     const product = await req.db.get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [result.id]);
@@ -209,9 +230,10 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
       await ensureBarcodeColumn(req.db, tenantCode);
       await ensureStockTrackingColumn(req.db, tenantCode);
       await ensurePurchaseRateColumn(req.db, tenantCode);
+      await ensureHasWeightColumns(req.db, tenantCode);
     }
 
-    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity, purchase_rate } = req.body;
+    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity, purchase_rate, has_weight, weight_unit } = req.body;
     
     // Validate and trim name
     const trimmedName = name ? String(name).trim() : '';
@@ -234,6 +256,8 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
     const barcodeValue = barcode != null && String(barcode).trim() ? String(barcode).trim() : null;
     const stockTracking = stock_tracking_enabled === 'true' || stock_tracking_enabled === true ? 1 : 0;
     const purchaseRate = purchase_rate != null && !isNaN(parseFloat(purchase_rate)) ? parseFloat(purchase_rate) : null;
+    const hasWeight = has_weight === 'true' || has_weight === true ? 1 : 0;
+    const weightUnit = hasWeight && weight_unit === 'kg' ? 'kg' : (hasWeight ? 'gram' : null);
     
     // Get current product to preserve stock_quantity if stock tracking is being disabled
     const currentProduct = await req.db.get('SELECT stock_tracking_enabled, stock_quantity FROM products WHERE id = ?', [productId]);
@@ -247,8 +271,8 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
     }
 
     await req.db.run(
-      'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, expiry_date = ?, barcode = ?, stock_tracking_enabled = ?, stock_quantity = ?, purchase_rate = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [trimmedName, parsedPrice, category_id || null, description || null, expiry, barcodeValue, stockTracking, stockQty, purchaseRate, productId]
+      'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, expiry_date = ?, barcode = ?, stock_tracking_enabled = ?, stock_quantity = ?, purchase_rate = ?, has_weight = ?, weight_unit = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [trimmedName, parsedPrice, category_id || null, description || null, expiry, barcodeValue, stockTracking, stockQty, purchaseRate, hasWeight, weightUnit, productId]
     );
 
     const product = await req.db.get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [productId]);
