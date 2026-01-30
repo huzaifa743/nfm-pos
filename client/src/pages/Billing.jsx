@@ -675,7 +675,7 @@ export default function Billing() {
                   </div>
 
                   <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-nowrap">
                       <button
                         onClick={() => {
                           const step = item.has_weight ? 0.1 : 1;
@@ -683,7 +683,7 @@ export default function Billing() {
                           const newQty = Math.max(minQty, parseFloat((item.quantity - step).toFixed(4)));
                           updateQuantity(item.id, newQty);
                         }}
-                        className="w-7 h-7 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300 flex-shrink-0"
+                        className="w-7 h-7 flex-shrink-0 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300"
                       >
                         <Minus className="w-4 h-4" />
                       </button>
@@ -708,7 +708,7 @@ export default function Billing() {
                               const num = parseFloat(raw);
                               if (isNaN(num) || num <= 0) updateQuantity(item.id, 0.001);
                             }}
-                            className="w-14 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                            className="w-12 flex-shrink-0 px-1.5 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500 focus:outline-none"
                             placeholder={item.weight_unit === 'kg' ? 'kg' : 'g'}
                           />
                           <select
@@ -717,12 +717,12 @@ export default function Billing() {
                               const newUnit = e.target.value;
                               setCart(cart.map((c) => (c.id === item.id ? { ...c, weight_unit: newUnit } : c)));
                             }}
-                            className="px-1 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-primary-500"
+                            className="flex-shrink-0 px-1 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-primary-500 w-10"
                           >
                             <option value="gram">g</option>
                             <option value="kg">kg</option>
                           </select>
-                          <span className="text-xs text-gray-500 self-center whitespace-nowrap">
+                          <span className="text-xs text-gray-500 flex-shrink-0 whitespace-nowrap">
                             {item.quantity >= 1
                               ? `= ${item.quantity} kg`
                               : `= ${Math.round(item.quantity * 1000)} g`}
@@ -759,7 +759,7 @@ export default function Billing() {
                           const newQty = parseFloat((item.quantity + step).toFixed(4));
                           updateQuantity(item.id, newQty);
                         }}
-                        className="w-7 h-7 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300 flex-shrink-0"
+                        className="w-7 h-7 flex-shrink-0 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
