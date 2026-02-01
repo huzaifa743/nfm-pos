@@ -990,7 +990,7 @@ export default function Billing() {
               </button>
               <button
                 onClick={() => setShowVATModal(true)}
-                className="px-3 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors font-semibold flex items-center justify-center gap-1.5 text-xs"
+                className="flex-1 px-3 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors font-semibold flex items-center justify-center gap-1.5 text-xs"
               >
                 <FileText className="w-3.5 h-3.5" />
                 {vatPercentage > 0 && !noVat ? `VAT: ${vatPercentage}%` : 'Add VAT'}
