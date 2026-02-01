@@ -17,11 +17,13 @@ import {
   Save,
   Eye,
   CreditCard,
+  FileText,
 } from 'lucide-react';
 import CheckoutModal from '../components/CheckoutModal';
 import CustomerModal from '../components/CustomerModal';
 import ReceiptPrint from '../components/ReceiptPrint';
 import DiscountModal from '../components/DiscountModal';
+import VATModal from '../components/VATModal';
 import ProductModal from '../components/ProductModal';
 import HoldSalesModal from '../components/HoldSalesModal';
 import SplitPaymentModal from '../components/SplitPaymentModal';
@@ -41,6 +43,11 @@ export default function Billing() {
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [discountType, setDiscountType] = useState('fixed');
+
+  // VAT state: controls the VAT modal and applied VAT across the cart
+  const [showVATModal, setShowVATModal] = useState(false);
+  const [vatPercentage, setVatPercentage] = useState(0);
+  const [noVat, setNoVat] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [completedSale, setCompletedSale] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -65,6 +72,35 @@ export default function Billing() {
     fetchCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory, searchTerm]);
+
+  // Re-apply VAT when items are added/removed or when discount changes
+  useEffect(() => {
+    if (!vatPercentage || noVat) return;
+
+    const baseSubtotal = cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+    if (baseSubtotal <= 0) return;
+
+    const amountAfterDiscount = baseSubtotal - discount;
+    const vatTotal = (amountAfterDiscount * vatPercentage) / 100;
+
+    // Only update if VAT distribution would change (prevents infinite loops)
+    let changed = false;
+    const newCart = cart.map((item) => {
+      const base = item.unit_price * item.quantity;
+      const proportion = baseSubtotal > 0 ? base / baseSubtotal : 0;
+      const itemVat = parseFloat((proportion * vatTotal).toFixed(2));
+      const newTotal = parseFloat((base + itemVat).toFixed(2));
+      if ((item.vat_amount || 0) !== itemVat || (item.vat_percentage || 0) !== vatPercentage || (item.total_price || 0) !== newTotal) {
+        changed = true;
+        return { ...item, vat_percentage: vatPercentage, vat_amount: itemVat, total_price: newTotal };
+      }
+      return item;
+    });
+
+    if (changed) setCart(newCart);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.length, vatPercentage, noVat, discount]);
 
 
   const fetchProducts = async () => {
@@ -285,6 +321,51 @@ export default function Billing() {
     const total = subtotal - discount;
 
     return { subtotal, discount, vat: totalVat, total };
+  };
+
+  const handleApplyVAT = (vatData) => {
+    const percentage = vatData.percentage || 0;
+    const isNoVat = vatData.noVat || false;
+
+    setVatPercentage(percentage);
+    setNoVat(isNoVat);
+
+    if (isNoVat || percentage === 0) {
+      // Clear VAT amounts on items
+      setCart((prev) => prev.map((item) => {
+        const base = item.unit_price * item.quantity;
+        return { ...item, vat_percentage: 0, vat_amount: 0, total_price: parseFloat(base.toFixed(2)) };
+      }));
+      return;
+    }
+
+    // Use the vatData.amount if provided (VATModal calculates it); otherwise compute from current cart
+    const vatTotal = typeof vatData.amount === 'number' ? vatData.amount : null;
+
+    const baseSubtotal = cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+    let computedVatTotal = vatTotal;
+    if (computedVatTotal === null) {
+      // compute amount after discount
+      const amountAfterDiscount = baseSubtotal - discount;
+      computedVatTotal = (amountAfterDiscount * percentage) / 100;
+    }
+
+    // Distribute VAT proportionally across items based on base price
+    if (baseSubtotal <= 0) return;
+
+    setCart((prev) => {
+      return prev.map((item) => {
+        const base = item.unit_price * item.quantity;
+        const proportion = baseSubtotal > 0 ? base / baseSubtotal : 0;
+        const itemVat = parseFloat((proportion * computedVatTotal).toFixed(2));
+        return {
+          ...item,
+          vat_percentage: percentage,
+          vat_amount: itemVat,
+          total_price: parseFloat((base + itemVat).toFixed(2)),
+        };
+      });
+    });
   };
 
   const handleCheckout = () => {
@@ -892,7 +973,7 @@ export default function Billing() {
           </div>
 
           <div className="space-y-2">
-            {/* Discount Button - VAT is per-product */}
+            {/* Discount and VAT Buttons */}
             <div className="flex gap-2">
               <button
                 onClick={() => setShowDiscountModal(true)}
@@ -903,6 +984,13 @@ export default function Billing() {
                   ? `Discount: ${formatCurrency(discount)}`
                   : 'Add Discount'
                 }
+              </button>
+              <button
+                onClick={() => setShowVATModal(true)}
+                className="px-3 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors font-semibold flex items-center justify-center gap-1.5 text-xs"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                {vatPercentage > 0 && !noVat ? `VAT: ${vatPercentage}%` : 'Add VAT'}
               </button>
             </div>
 
@@ -1204,6 +1292,21 @@ export default function Billing() {
             setDiscountType(discountData.type);
             setShowDiscountModal(false);
             toast.success('Discount applied successfully');
+          }}
+        />
+      )}
+
+      {showVATModal && (
+        <VATModal
+          subtotal={subtotal}
+          discount={discount}
+          currentVAT={vatPercentage}
+          noVAT={noVat}
+          onClose={() => setShowVATModal(false)}
+          onApply={(vatData) => {
+            handleApplyVAT(vatData);
+            setShowVATModal(false);
+            toast.success('VAT applied successfully');
           }}
         />
       )}
