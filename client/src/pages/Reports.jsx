@@ -260,10 +260,11 @@ export default function Reports() {
     }, 250);
   };
 
-  const hasReportData = () => {
-    if (reportType === 'sales' && salesReport?.sales?.length) return true;
-    if (reportType === 'products' && productReport?.products?.length) return true;
-    if (reportType === 'users' && usersReport?.users?.length) return true;
+  // Show export buttons when report has been loaded (even if empty)
+  const showExportButtons = () => {
+    if (reportType === 'sales' && salesReport !== null) return true;
+    if (reportType === 'products' && productReport !== null) return true;
+    if (reportType === 'users' && usersReport !== null) return true;
     return false;
   };
 
@@ -345,18 +346,18 @@ export default function Reports() {
             <BarChart3 className="w-5 h-5" />
             {t('reports.filter')}
           </button>
-          {hasReportData() && (
+          {showExportButtons() && (
             <>
               <button
                 onClick={exportCsv}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 transition-colors"
               >
                 <FileDown className="w-5 h-5" />
-                Export CSV
+                Export CSV/Excel
               </button>
               <button
                 onClick={exportPdf}
-                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 transition-colors"
               >
                 <FileText className="w-5 h-5" />
                 Export PDF
