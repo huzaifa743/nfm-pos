@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSettings } from '../contexts/SettingsContext';
 import api from '../api/api';
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
@@ -15,6 +16,7 @@ export default function ProductModal({
   suppressToast = false,
 }) {
   const { t } = useTranslation();
+  const { formatCurrency } = useSettings();
   const [form, setForm] = useState({
     name: '',
     price: '',
@@ -29,6 +31,7 @@ export default function ProductModal({
     add_stock_quantity: false,
     has_weight: false,
     weight_unit: 'gram',
+    vat_percentage: '',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -49,6 +52,7 @@ export default function ProductModal({
         add_stock_quantity: editingProduct.stock_tracking_enabled === 1 || editingProduct.stock_tracking_enabled === true,
         has_weight: editingProduct.has_weight === 1 || editingProduct.has_weight === true,
         weight_unit: editingProduct.weight_unit === 'kg' ? 'kg' : 'gram',
+        vat_percentage: editingProduct.vat_percentage != null && editingProduct.vat_percentage > 0 ? String(editingProduct.vat_percentage) : '',
       });
     } else {
       setForm({
@@ -65,6 +69,7 @@ export default function ProductModal({
         add_stock_quantity: false,
         has_weight: false,
         weight_unit: 'gram',
+        vat_percentage: '',
       });
     }
   }, [open, editingProduct, initialCategoryId]);
@@ -114,6 +119,7 @@ export default function ProductModal({
       formData.append('purchase_rate', form.purchase_rate ? String(form.purchase_rate) : '');
       formData.append('has_weight', form.has_weight ? 'true' : 'false');
       formData.append('weight_unit', form.has_weight ? form.weight_unit : '');
+      formData.append('vat_percentage', form.vat_percentage && !isNaN(parseFloat(form.vat_percentage)) ? String(parseFloat(form.vat_percentage)) : '0');
 
       let product;
       if (editingProduct) {
@@ -145,6 +151,7 @@ export default function ProductModal({
         add_stock_quantity: false,
         has_weight: false,
         weight_unit: 'gram',
+        vat_percentage: '',
       });
     } catch (err) {
       console.error('Product save error:', err);
@@ -170,6 +177,7 @@ export default function ProductModal({
       add_stock_quantity: false,
       has_weight: false,
       weight_unit: 'gram',
+      vat_percentage: '',
     });
   };
 
@@ -266,6 +274,26 @@ export default function ProductModal({
                 onChange={(e) => handleChange('price', e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                VAT % (Optional)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={form.vat_percentage}
+                onChange={(e) => handleChange('vat_percentage', e.target.value)}
+                placeholder="e.g. 5"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+              {form.price && form.vat_percentage && !isNaN(parseFloat(form.price)) && !isNaN(parseFloat(form.vat_percentage)) && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Price with VAT: {formatCurrency(parseFloat(form.price) * (1 + parseFloat(form.vat_percentage) / 100))}
+                </p>
+              )}
             </div>
           </div>
 

@@ -147,6 +147,7 @@ function createTenantDatabase(tenantCode) {
           description TEXT,
           stock_quantity INTEGER DEFAULT 0,
           expiry_date TEXT,
+          vat_percentage REAL DEFAULT 0,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (category_id) REFERENCES categories(id)
@@ -201,6 +202,8 @@ function createTenantDatabase(tenantCode) {
           quantity REAL NOT NULL,
           unit_price REAL NOT NULL,
           total_price REAL NOT NULL,
+          vat_percentage REAL DEFAULT 0,
+          vat_amount REAL DEFAULT 0,
           FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
           FOREIGN KEY (product_id) REFERENCES products(id)
         )`, (err) => {

@@ -5,6 +5,22 @@ const { getTenantDb, closeTenantDb, requireTenant } = require('../middleware/ten
 
 const router = express.Router();
 const deliveryMigratedTenants = new Set();
+const saleItemsVatMigratedTenants = new Set();
+
+async function ensureSaleItemsVatColumns(db, tenantCode) {
+  if (!tenantCode || saleItemsVatMigratedTenants.has(tenantCode)) return;
+  try {
+    await db.run('ALTER TABLE sale_items ADD COLUMN vat_percentage REAL DEFAULT 0');
+  } catch (err) {
+    if (!err.message || !err.message.includes('duplicate column')) throw err;
+  }
+  try {
+    await db.run('ALTER TABLE sale_items ADD COLUMN vat_amount REAL DEFAULT 0');
+  } catch (err) {
+    if (!err.message || !err.message.includes('duplicate column')) throw err;
+  }
+  saleItemsVatMigratedTenants.add(tenantCode);
+}
 
 async function ensureDeliveryColumns(db, tenantCode) {
   if (!tenantCode || deliveryMigratedTenants.has(tenantCode)) return;
@@ -27,6 +43,7 @@ router.get('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, as
     const tenantCode = req.user?.tenant_code;
     if (tenantCode) {
       await ensureDeliveryColumns(req.db, tenantCode);
+      await ensureSaleItemsVatColumns(req.db, tenantCode);
     }
 
     const { start_date, end_date, search, payment_method, delivery_status } = req.query;
@@ -82,6 +99,7 @@ router.get('/:id', authenticateToken, requireTenant, getTenantDb, closeTenantDb,
     const tenantCode = req.user?.tenant_code;
     if (tenantCode) {
       await ensureDeliveryColumns(req.db, tenantCode);
+      await ensureSaleItemsVatColumns(req.db, tenantCode);
     }
 
     const sale = await req.db.get(
@@ -118,6 +136,7 @@ router.post('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, a
     const tenantCode = req.user?.tenant_code;
     if (tenantCode) {
       await ensureDeliveryColumns(req.db, tenantCode);
+      await ensureSaleItemsVatColumns(req.db, tenantCode);
     }
 
     const {
@@ -197,20 +216,24 @@ router.post('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, a
       const quantity = parseFloat(item.quantity) || 0;
       const unitPrice = parseFloat(item.unit_price) || 0;
       const totalPrice = parseFloat(item.total_price) || 0;
+      const vatPct = parseFloat(item.vat_percentage) || 0;
+      const vatAmt = parseFloat(item.vat_amount) || 0;
 
       if (!item.product_id || !item.product_name) {
         throw new Error('Invalid item: product_id and product_name are required');
       }
 
       await req.db.run(
-        'INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, total_price) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, total_price, vat_percentage, vat_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         [
           saleResult.id,
           item.product_id,
           item.product_name,
           quantity,
           unitPrice,
-          totalPrice
+          totalPrice,
+          vatPct,
+          vatAmt
         ]
       );
 

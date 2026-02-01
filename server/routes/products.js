@@ -12,6 +12,17 @@ const barcodeMigratedTenants = new Set();
 const stockTrackingMigratedTenants = new Set();
 const purchaseRateMigratedTenants = new Set();
 const hasWeightMigratedTenants = new Set();
+const vatPercentageMigratedTenants = new Set();
+
+async function ensureVatPercentageColumn(db, tenantCode) {
+  if (!tenantCode || vatPercentageMigratedTenants.has(tenantCode)) return;
+  try {
+    await db.run('ALTER TABLE products ADD COLUMN vat_percentage REAL DEFAULT 0');
+  } catch (err) {
+    if (!err.message || !err.message.includes('duplicate column')) throw err;
+  }
+  vatPercentageMigratedTenants.add(tenantCode);
+}
 
 async function ensureExpiryDateColumn(db, tenantCode) {
   if (!tenantCode || migratedTenants.has(tenantCode)) return;
@@ -109,6 +120,7 @@ router.get('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, as
       await ensureStockTrackingColumn(req.db, tenantCode);
       await ensurePurchaseRateColumn(req.db, tenantCode);
       await ensureHasWeightColumns(req.db, tenantCode);
+      await ensureVatPercentageColumn(req.db, tenantCode);
     }
 
     const { category_id, search, barcode } = req.query;
@@ -149,6 +161,7 @@ router.get('/:id', authenticateToken, requireTenant, getTenantDb, closeTenantDb,
       await ensureStockTrackingColumn(req.db, tenantCode);
       await ensurePurchaseRateColumn(req.db, tenantCode);
       await ensureHasWeightColumns(req.db, tenantCode);
+      await ensureVatPercentageColumn(req.db, tenantCode);
     }
 
     const product = await req.db.get(
@@ -177,9 +190,10 @@ router.post('/', authenticateToken, preventDemoModifications, requireTenant, get
       await ensureStockTrackingColumn(req.db, tenantCode);
       await ensurePurchaseRateColumn(req.db, tenantCode);
       await ensureHasWeightColumns(req.db, tenantCode);
+      await ensureVatPercentageColumn(req.db, tenantCode);
     }
 
-    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity, purchase_rate, has_weight, weight_unit } = req.body;
+    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity, purchase_rate, has_weight, weight_unit, vat_percentage } = req.body;
 
     // Validate and trim name
     const trimmedName = name ? String(name).trim() : '';
@@ -206,10 +220,11 @@ router.post('/', authenticateToken, preventDemoModifications, requireTenant, get
     const purchaseRate = purchase_rate && !isNaN(parseFloat(purchase_rate)) ? parseFloat(purchase_rate) : null;
     const hasWeight = has_weight === 'true' || has_weight === true ? 1 : 0;
     const weightUnit = hasWeight && weight_unit === 'kg' ? 'kg' : (hasWeight ? 'gram' : null);
+    const vatPct = vat_percentage != null && !isNaN(parseFloat(vat_percentage)) ? Math.max(0, Math.min(100, parseFloat(vat_percentage))) : 0;
 
     const result = await req.db.run(
-      'INSERT INTO products (name, price, category_id, description, stock_quantity, expiry_date, barcode, stock_tracking_enabled, purchase_rate, has_weight, weight_unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [trimmedName, parsedPrice, category_id || null, description || null, stockQty, expiry, barcodeValue, stockTracking, purchaseRate, hasWeight, weightUnit]
+      'INSERT INTO products (name, price, category_id, description, stock_quantity, expiry_date, barcode, stock_tracking_enabled, purchase_rate, has_weight, weight_unit, vat_percentage) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [trimmedName, parsedPrice, category_id || null, description || null, stockQty, expiry, barcodeValue, stockTracking, purchaseRate, hasWeight, weightUnit, vatPct]
     );
 
     const product = await req.db.get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [result.id]);
@@ -231,9 +246,10 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
       await ensureStockTrackingColumn(req.db, tenantCode);
       await ensurePurchaseRateColumn(req.db, tenantCode);
       await ensureHasWeightColumns(req.db, tenantCode);
+      await ensureVatPercentageColumn(req.db, tenantCode);
     }
 
-    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity, purchase_rate, has_weight, weight_unit } = req.body;
+    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity, purchase_rate, has_weight, weight_unit, vat_percentage } = req.body;
     
     // Validate and trim name
     const trimmedName = name ? String(name).trim() : '';
@@ -258,6 +274,7 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
     const purchaseRate = purchase_rate != null && !isNaN(parseFloat(purchase_rate)) ? parseFloat(purchase_rate) : null;
     const hasWeight = has_weight === 'true' || has_weight === true ? 1 : 0;
     const weightUnit = hasWeight && weight_unit === 'kg' ? 'kg' : (hasWeight ? 'gram' : null);
+    const vatPct = vat_percentage != null && !isNaN(parseFloat(vat_percentage)) ? Math.max(0, Math.min(100, parseFloat(vat_percentage))) : 0;
     
     // Get current product to preserve stock_quantity if stock tracking is being disabled
     const currentProduct = await req.db.get('SELECT stock_tracking_enabled, stock_quantity FROM products WHERE id = ?', [productId]);
@@ -271,8 +288,8 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
     }
 
     await req.db.run(
-      'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, expiry_date = ?, barcode = ?, stock_tracking_enabled = ?, stock_quantity = ?, purchase_rate = ?, has_weight = ?, weight_unit = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [trimmedName, parsedPrice, category_id || null, description || null, expiry, barcodeValue, stockTracking, stockQty, purchaseRate, hasWeight, weightUnit, productId]
+      'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, expiry_date = ?, barcode = ?, stock_tracking_enabled = ?, stock_quantity = ?, purchase_rate = ?, has_weight = ?, weight_unit = ?, vat_percentage = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [trimmedName, parsedPrice, category_id || null, description || null, expiry, barcodeValue, stockTracking, stockQty, purchaseRate, hasWeight, weightUnit, vatPct, productId]
     );
 
     const product = await req.db.get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [productId]);

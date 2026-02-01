@@ -182,6 +182,9 @@ export default function Inventory() {
                     {t('inventory.productPrice')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    VAT %
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Purchase Rate
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -245,6 +248,18 @@ export default function Inventory() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                       {formatCurrency(product.price)}
+                      {(product.vat_percentage && parseFloat(product.vat_percentage) > 0) && (
+                        <span className="block text-xs text-blue-600">
+                          → {formatCurrency(product.price * (1 + parseFloat(product.vat_percentage) / 100))} incl.
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.vat_percentage && parseFloat(product.vat_percentage) > 0 ? (
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">{product.vat_percentage}%</span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {product.purchase_rate ? (

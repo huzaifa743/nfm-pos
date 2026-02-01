@@ -201,21 +201,38 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
             <div className="receipt-items">
               <div className="receipt-items-header">
                 <div className="item-col item-name">Name</div>
-                <div className="item-col item-rate">Rate</div>
+                <div className="item-col item-rate">Base</div>
                 <div className="item-col item-qty">Qty</div>
                 <div className="item-col item-amount">Amount</div>
               </div>
 
-              {sale.items?.map((item, index) => (
-                <div key={index} className="receipt-item-row">
-                  <div className="item-col item-name">
-                    <span className="item-name-text">{item.product_name}</span>
+              {sale.items?.map((item, index) => {
+                const vatPct = item.vat_percentage ?? 0;
+                const vatAmt = item.vat_amount ?? 0;
+                const hasVat = vatPct > 0 && vatAmt > 0;
+                return (
+                  <div key={index}>
+                    <div className="receipt-item-row">
+                      <div className="item-col item-name">
+                        <span className="item-name-text">{item.product_name}</span>
+                      </div>
+                      <div className="item-col item-rate">{formatPrice(item.unit_price)}</div>
+                      <div className="item-col item-qty">{item.quantity}</div>
+                      <div className="item-col item-amount">{formatPrice(item.total_price)}</div>
+                    </div>
+                    {hasVat && (
+                      <div className="receipt-item-row receipt-vat-row">
+                        <div className="item-col item-name">
+                          <span className="item-name-text">  + VAT ({vatPct}%)</span>
+                        </div>
+                        <div className="item-col item-rate"></div>
+                        <div className="item-col item-qty"></div>
+                        <div className="item-col item-amount">{formatPrice(vatAmt)}</div>
+                      </div>
+                    )}
                   </div>
-                  <div className="item-col item-rate">{formatPrice(item.unit_price)}</div>
-                  <div className="item-col item-qty">{item.quantity}</div>
-                  <div className="item-col item-amount">{formatPrice(item.total_price)}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="receipt-divider"></div>
@@ -239,7 +256,9 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
               )}
               {sale.vat_amount > 0 && (
                 <div className="receipt-row">
-                  <span className="receipt-label">VAT ({sale.vat_percentage}%)</span>
+                  <span className="receipt-label">
+                    {sale.vat_percentage > 0 ? `VAT (${sale.vat_percentage}%)` : 'VAT'}
+                  </span>
                   <span className="receipt-spacer-rate"></span>
                   <span className="receipt-spacer-qty"></span>
                   <span className="receipt-value">{formatPrice(sale.vat_amount)}</span>

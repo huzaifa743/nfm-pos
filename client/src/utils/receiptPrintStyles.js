@@ -323,6 +323,12 @@ export const getReceiptPrintStyles = (paperSize = '80mm') => {
       box-sizing: border-box;
     }
     
+    .receipt-vat-row {
+      font-size: 10px;
+      padding: 1px 0;
+      min-height: 14px;
+    }
+    
     .item-col {
       color: #000 !important;
       line-height: 1.3;
