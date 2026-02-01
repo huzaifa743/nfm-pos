@@ -80,7 +80,9 @@ export default function Billing() {
     const baseSubtotal = cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
     if (baseSubtotal <= 0) return;
 
-    const amountAfterDiscount = baseSubtotal - discount;
+    // Compute discount from stored discount state (avoid referencing `discount` before it's declared)
+    const computedDiscount = discountType === 'percentage' ? (baseSubtotal * discountAmount) / 100 : discountAmount;
+    const amountAfterDiscount = baseSubtotal - computedDiscount;
     const vatTotal = (amountAfterDiscount * vatPercentage) / 100;
 
     // Only update if VAT distribution would change (prevents infinite loops)
@@ -100,7 +102,7 @@ export default function Billing() {
     if (changed) setCart(newCart);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart.length, vatPercentage, noVat, discount]);
+  }, [cart.length, vatPercentage, noVat, discountAmount, discountType]);
 
 
   const fetchProducts = async () => {
@@ -345,8 +347,9 @@ export default function Billing() {
     const baseSubtotal = cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
     let computedVatTotal = vatTotal;
     if (computedVatTotal === null) {
-      // compute amount after discount
-      const amountAfterDiscount = baseSubtotal - discount;
+      // compute amount after discount using stored discount state
+      const computedDiscount = discountType === 'percentage' ? (baseSubtotal * discountAmount) / 100 : discountAmount;
+      const amountAfterDiscount = baseSubtotal - computedDiscount;
       computedVatTotal = (amountAfterDiscount * percentage) / 100;
     }
 
