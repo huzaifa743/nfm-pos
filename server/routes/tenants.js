@@ -24,7 +24,8 @@ router.post('/', authenticateToken, requireRole('super_admin'), async (req, res)
       owner_email,
       owner_phone,
       username,
-      password
+      password,
+      valid_until
     } = req.body;
 
     if (!restaurant_name || !owner_name || !owner_email || !username || !password) {
@@ -39,9 +40,9 @@ router.post('/', authenticateToken, requireRole('super_admin'), async (req, res)
 
     // Create tenant in master database (status inactive until owner first login)
     const result = await masterDbHelpers.run(
-      `INSERT INTO tenants (tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, password, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'inactive')`,
-      [tenant_code, restaurant_name, owner_name, owner_email, owner_phone || null, username, hashedPassword]
+      `INSERT INTO tenants (tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, password, status, valid_until)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'inactive', ?)`,
+      [tenant_code, restaurant_name, owner_name, owner_email, owner_phone || null, username, hashedPassword, valid_until || null]
     );
 
     // Create tenant database
@@ -133,7 +134,8 @@ router.put('/:id', authenticateToken, requireRole('super_admin'), async (req, re
       owner_name,
       owner_email,
       owner_phone,
-      status
+      status,
+      valid_until
     } = req.body;
 
     const updates = [];
@@ -158,6 +160,10 @@ router.put('/:id', authenticateToken, requireRole('super_admin'), async (req, re
     if (status) {
       updates.push('status = ?');
       values.push(status);
+    }
+    if (valid_until) {
+      updates.push('valid_until = ?');
+      values.push(valid_until);
     }
 
     if (updates.length === 0) {

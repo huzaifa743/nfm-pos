@@ -65,6 +65,7 @@ function initializeMasterDatabase() {
         password TEXT NOT NULL,
         status TEXT DEFAULT 'active',
         activated_at DATETIME,
+        valid_until DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`, (err) => {

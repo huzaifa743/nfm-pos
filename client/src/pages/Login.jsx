@@ -92,9 +92,6 @@ export default function Login() {
                   className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="Enter tenant code"
                 />
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Leave empty for super admin
-                </p>
               </div>
             ) : (
               <div className="flex items-center justify-between rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
@@ -106,7 +103,7 @@ export default function Login() {
                   onClick={handleUseDifferentTenant}
                   className="text-xs text-primary-600 hover:text-primary-700 font-medium"
                 >
-                  Use different tenant / Super admin
+                  Use different tenant
                 </button>
               </div>
             )}

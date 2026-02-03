@@ -19,7 +19,8 @@ export default function Tenants() {
     owner_phone: '',
     username: '',
     password: '',
-    status: 'active'
+    status: 'active',
+    valid_until: ''
   });
 
   useEffect(() => {
@@ -75,7 +76,8 @@ export default function Tenants() {
       owner_phone: tenant.owner_phone || '',
       username: tenant.username,
       password: '', // Don't pre-fill password
-      status: tenant.status || 'active'
+      status: tenant.status || 'active',
+      valid_until: tenant.valid_until ? tenant.valid_until.split('T')[0] : ''
     });
     setShowModal(true);
   };
@@ -114,7 +116,8 @@ export default function Tenants() {
       owner_phone: '',
       username: '',
       password: '',
-      status: 'active'
+      status: 'active',
+      valid_until: ''
     });
     setEditingTenant(null);
   };
@@ -214,6 +217,9 @@ export default function Tenants() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant Code</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created At</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Updated At</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Valid Until</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
@@ -259,6 +265,15 @@ export default function Tenants() {
                         {tenant.status === 'active' ? 'Deactivate' : 'Activate'}
                       </button>
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(tenant.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(tenant.updated_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {tenant.valid_until ? new Date(tenant.valid_until).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex gap-2">
@@ -371,6 +386,19 @@ export default function Tenants() {
                   value={formData.password}
                   onChange={handleInputChange}
                   required={!editingTenant}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Valid Until
+                </label>
+                <input
+                  type="date"
+                  name="valid_until"
+                  value={formData.valid_until}
+                  onChange={handleInputChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
               </div>
