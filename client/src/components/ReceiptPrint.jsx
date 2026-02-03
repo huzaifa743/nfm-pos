@@ -3,6 +3,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getImageURL } from '../utils/api';
 import { X, Printer } from 'lucide-react';
+import { FaWhatsapp } from 'react-icons/fa';
 
 export default function ReceiptPrint({ sale, onClose, onPrint }) {
   const { t } = useTranslation();
@@ -175,14 +176,17 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
               {settings.restaurant_address && (
                 <p className="receipt-address">{settings.restaurant_address}</p>
               )}
-              {(settings.restaurant_phone || settings.restaurant_email) && (
-                <div className="receipt-contact">
-                  {settings.restaurant_phone && <span>{settings.restaurant_phone}</span>}
-                  {settings.restaurant_phone && settings.restaurant_email && <span> • </span>}
-                  {settings.restaurant_email && <span>{settings.restaurant_email}</span>}
-                </div>
-              )}
-              <div className="receipt-divider"></div>
+                        {(settings.restaurant_phone || settings.restaurant_email) && (
+                          <div className="receipt-contact" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                            {settings.restaurant_phone && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <FaWhatsapp />
+                                <span>{settings.restaurant_phone}</span>
+                              </div>
+                            )}
+                            {settings.restaurant_email && <span>{settings.restaurant_email}</span>}
+                          </div>
+                        )}              <div className="receipt-divider"></div>
             </div>
 
             {/* Bill Information */}
