@@ -205,7 +205,7 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
             <div className="receipt-items">
               <div className="receipt-items-header">
                 <div className="item-col item-name">Name</div>
-                <div className="item-col item-rate">Base</div>
+                <div className="item-col item-rate">Rate</div>
                 <div className="item-col item-qty">Qty</div>
                 <div className="item-col item-amount">Amount</div>
               </div>
