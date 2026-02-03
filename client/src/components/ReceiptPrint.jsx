@@ -224,16 +224,7 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
                       <div className="item-col item-qty">{item.quantity}</div>
                       <div className="item-col item-amount">{formatPrice(item.total_price)}</div>
                     </div>
-                    {hasVat && (
-                      <div className="receipt-item-row receipt-vat-row">
-                        <div className="item-col item-name">
-                          <span className="item-name-text">  + VAT ({vatPct}%)</span>
-                        </div>
-                        <div className="item-col item-rate"></div>
-                        <div className="item-col item-qty"></div>
-                        <div className="item-col item-amount">{formatPrice(vatAmt)}</div>
-                      </div>
-                    )}
+
                   </div>
                 );
               })}
