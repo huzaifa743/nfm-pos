@@ -60,68 +60,36 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
 
   const formatFullDateTime = (dateString) => {
     if (!dateString) return '';
-    
-    // SQLite returns date in format "YYYY-MM-DD HH:MM:SS"
-    // If it's stored as UTC (showing 5 hours back), convert to local time
-    let year, month, day, hours, minutes, seconds;
-    
+
     try {
-      // Parse the date string - if it's in UTC, treat it as UTC and convert to local
-      // Format: "2026-01-18 08:50:30" (UTC) needs to show as "2026-01-18 1:50:30 PM" (local)
-      const parts = dateString.trim().split(' ');
-      
-      if (parts.length >= 2) {
-        // SQLite format "YYYY-MM-DD HH:MM:SS"
-        // Convert to ISO format with Z (UTC) then parse to get local time
-        const isoString = parts[0] + 'T' + parts[1] + 'Z';
-        const date = new Date(isoString);
-        
-        if (!isNaN(date.getTime())) {
-          // Get local time components from the UTC date
-          year = date.getFullYear();
-          month = date.getMonth() + 1;
-          day = date.getDate();
-          hours = date.getHours();
-          minutes = date.getMinutes();
-          seconds = date.getSeconds();
-        } else {
-          // Fallback: extract directly (treat as local)
-          const dateComponents = parts[0].split('-').map(Number);
-          const timeComponents = parts[1].split(':').map(Number);
-          year = dateComponents[0];
-          month = dateComponents[1];
-          day = dateComponents[2];
-          hours = timeComponents[0] || 0;
-          minutes = timeComponents[1] || 0;
-          seconds = Math.floor(timeComponents[2] || 0);
-        }
-      } else {
-        // Single part or ISO format - use Date parsing
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) return '';
-        year = date.getFullYear();
-        month = date.getMonth() + 1;
-        day = date.getDate();
-        hours = date.getHours();
-        minutes = date.getMinutes();
-        seconds = date.getSeconds();
+      // The date string from SQLite can be "YYYY-MM-DD HH:MM:SS".
+      // We must hint that this is UTC, otherwise the browser may interpret it as local time.
+      // Replacing space with 'T' and appending 'Z' creates a valid ISO 8601 string in UTC.
+      const isoDateString = dateString.replace(' ', 'T') + 'Z';
+      const date = new Date(isoDateString);
+
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        return dateString; // Return original string if parsing fails
       }
+
+      // Use the browser's internationalization API to format the date
+      // This automatically converts it to the user's local timezone and locale format.
+      const options = {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      };
+
+      return new Intl.DateTimeFormat(navigator.language || 'en-US', options).format(date);
     } catch (error) {
       console.error('Error parsing date:', dateString, error);
-      return '';
+      return dateString; // Return original string on error
     }
-    
-    // Format the output
-    const dayStr = String(day).padStart(2, '0');
-    const monthStr = String(month).padStart(2, '0');
-    const minutesStr = String(minutes).padStart(2, '0');
-    const secondsStr = String(seconds).padStart(2, '0');
-    
-    // Convert to 12-hour format with correct AM/PM
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12; // Convert 0 to 12, 13 to 1, etc.
-    
-    return `${dayStr}-${monthStr}-${year} ${displayHours}:${minutesStr}:${secondsStr} ${ampm}`;
   };
 
   const formatPrice = (amount) => {
@@ -196,7 +164,17 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
 
             {/* Bill Date */}
             <div className="receipt-bill-date-wrapper">
-              <span className="receipt-bill-date">{formatFullDateTime(sale.created_at)}</span>
+              <span className="receipt-bill-date">
+                {new Date().toLocaleString(navigator.language || 'en-US', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: true
+                })}
+              </span>
             </div>
 
             <div className="receipt-divider"></div>
