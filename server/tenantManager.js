@@ -81,8 +81,16 @@ function initializeMasterDatabase() {
             reject(err2);
             return;
           }
-          console.log('✅ Master database initialized');
-          resolve();
+          // Migrate existing DBs: add valid_until if missing
+          masterDb.run('ALTER TABLE tenants ADD COLUMN valid_until DATETIME', (err3) => {
+            if (err3 && !/duplicate column name/i.test(err3.message)) {
+              console.error('Error adding valid_until:', err3);
+              reject(err3);
+              return;
+            }
+            console.log('✅ Master database initialized');
+            resolve();
+          });
         });
       });
     });
