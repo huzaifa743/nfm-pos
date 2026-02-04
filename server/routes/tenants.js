@@ -69,7 +69,7 @@ router.post('/', authenticateToken, requireRole('super_admin'), async (req, res)
       await db.close();
 
       const tenant = await masterDbHelpers.get(
-        'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at FROM tenants WHERE id = ?',
+        'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until FROM tenants WHERE id = ?',
         [result.id]
       );
 
@@ -98,7 +98,7 @@ router.post('/', authenticateToken, requireRole('super_admin'), async (req, res)
 router.get('/', authenticateToken, requireRole('super_admin'), async (req, res) => {
   try {
     const tenants = await masterDbHelpers.query(
-      'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at FROM tenants ORDER BY created_at DESC'
+      'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until FROM tenants ORDER BY created_at DESC'
     );
     res.json(tenants);
   } catch (error) {
@@ -111,7 +111,7 @@ router.get('/', authenticateToken, requireRole('super_admin'), async (req, res) 
 router.get('/:id', authenticateToken, requireRole('super_admin'), async (req, res) => {
   try {
     const tenant = await masterDbHelpers.get(
-      'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at FROM tenants WHERE id = ?',
+      'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until FROM tenants WHERE id = ?',
       [req.params.id]
     );
 
@@ -179,7 +179,7 @@ router.put('/:id', authenticateToken, requireRole('super_admin'), async (req, re
     );
 
     const tenant = await masterDbHelpers.get(
-      'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at FROM tenants WHERE id = ?',
+      'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until FROM tenants WHERE id = ?',
       [req.params.id]
     );
 
