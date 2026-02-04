@@ -1,4 +1,7 @@
-import { useState, useEffect } from 'react';
+import {
+  useState,
+  useEffect
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../contexts/SettingsContext';
 import { getImageURL } from '../utils/api';
@@ -597,7 +600,7 @@ export default function Billing() {
 
   const handlePrintReceipt = () => {
     const saleToPrint = completedSale || generateCartPreview();
-    if (!saleToPrint) return;
+    if (!saleToPrint) return; 
     
     const paperSize = settings.receipt_paper_size || '80mm';
     const receiptContent = document.getElementById('receipt-content');
@@ -940,11 +943,10 @@ export default function Billing() {
                   }
                 }}
                 disabled={!completedSale && cart.length === 0}
-                className={`px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-semibold ${
-                  (completedSale || cart.length > 0)
+                className={`px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-semibold ${ (completedSale || cart.length > 0)
                     ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                }`}
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'}
+                `}
               >
                 <Receipt className="w-4 h-4" />
                 View Receipt
@@ -1035,11 +1037,10 @@ export default function Billing() {
                 return (
                   <div
                     key={product.id}
-                    className={`flex flex-col h-full bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow ${
-                      product.stock_tracking_enabled === 1 && product.stock_quantity !== null && product.stock_quantity <= 0
+                    className={`flex flex-col h-full bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow ${ product.stock_tracking_enabled === 1 && product.stock_quantity !== null && product.stock_quantity <= 0
                         ? 'opacity-50 cursor-not-allowed'
-                        : 'cursor-pointer'
-                    }`}
+                        : 'cursor-pointer'}
+                    `}
                     onClick={() => {
                       if (product.stock_tracking_enabled === 1 && product.stock_quantity !== null && product.stock_quantity <= 0) {
                         toast.error(`${product.name} is out of stock`);
@@ -1139,11 +1140,10 @@ export default function Billing() {
             <button
               onClick={handleHoldSale}
               disabled={cart.length === 0}
-              className={`flex-1 px-4 py-2.5 rounded-lg transition-colors font-semibold flex items-center justify-center gap-2 text-sm ${
-                cart.length > 0
+              className={`flex-1 px-4 py-2.5 rounded-lg transition-colors font-semibold flex items-center justify-center gap-2 text-sm ${ cart.length > 0
                   ? 'bg-yellow-500 text-white hover:bg-yellow-600'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'}
+              `}
             >
               <Save className="w-4 h-4" />
               Hold Sale
@@ -1164,11 +1164,10 @@ export default function Billing() {
                 setShowSplitPaymentModal(true);
               }}
               disabled={cart.length === 0}
-              className={`flex-1 px-4 py-2.5 rounded-lg transition-colors font-semibold flex items-center justify-center gap-2 text-sm ${
-                cart.length > 0
+              className={`flex-1 px-4 py-2.5 rounded-lg transition-colors font-semibold flex items-center justify-center gap-2 text-sm ${ cart.length > 0
                   ? 'bg-purple-500 text-white hover:bg-purple-600'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'}
+              `}
             >
               <CreditCard className="w-4 h-4" />
               Split Payment
