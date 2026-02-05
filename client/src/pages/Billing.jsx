@@ -20,11 +20,13 @@ import {
   Save,
   Eye,
   CreditCard,
+  FileText,
 } from 'lucide-react';
 import CheckoutModal from '../components/CheckoutModal';
 import CustomerModal from '../components/CustomerModal';
 import ReceiptPrint from '../components/ReceiptPrint';
 import DiscountModal from '../components/DiscountModal';
+import VATModal from '../components/VATModal';
 import ProductModal from '../components/ProductModal';
 import HoldSalesModal from '../components/HoldSalesModal';
 import SplitPaymentModal from '../components/SplitPaymentModal';
@@ -42,8 +44,11 @@ export default function Billing() {
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [showVatModal, setShowVatModal] = useState(false);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [discountType, setDiscountType] = useState('fixed');
+  const [saleVatPercentage, setSaleVatPercentage] = useState(null);
+  const [noVat, setNoVat] = useState(false);
 
   const [showReceipt, setShowReceipt] = useState(false);
   const [completedSale, setCompletedSale] = useState(null);
@@ -69,6 +74,13 @@ export default function Billing() {
     fetchCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory, searchTerm]);
+
+  useEffect(() => {
+    if (saleVatPercentage === null && settings?.vat_percentage !== undefined) {
+      const initialVat = parseFloat(settings.vat_percentage) || 0;
+      setSaleVatPercentage(initialVat);
+    }
+  }, [saleVatPercentage, settings?.vat_percentage]);
 
   // Re-apply VAT when items are added/removed or when discount changes
   useEffect(() => {
@@ -296,14 +308,17 @@ export default function Billing() {
 
   const calculateTotals = () => {
     const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
-    const totalVat = cart.reduce((sum, item) => sum + (item.vat_amount || 0), 0);
+    const itemVatTotal = cart.reduce((sum, item) => sum + (item.vat_amount || 0), 0);
     const discount =
       discountType === 'percentage'
         ? (subtotal * discountAmount) / 100
         : discountAmount;
-    const total = subtotal - discount;
+    const effectiveVatPct = noVat ? 0 : (parseFloat(saleVatPercentage) || 0);
+    const saleVatAmount = effectiveVatPct > 0 ? ((subtotal - discount) * effectiveVatPct) / 100 : 0;
+    const totalVat = itemVatTotal + saleVatAmount;
+    const total = subtotal - discount + saleVatAmount;
 
-    return { subtotal, discount, vat: totalVat, total };
+    return { subtotal, discount, vat: totalVat, total, saleVatAmount };
   };
 
   const handleCheckout = () => {
@@ -330,7 +345,7 @@ export default function Billing() {
         subtotal: cart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0),
         discount_amount: discount,
         discount_type: discountType,
-        vat_percentage: 0,
+        vat_percentage: noVat ? 0 : (parseFloat(saleVatPercentage) || 0),
         vat_amount: vat,
         total,
         notes
@@ -363,6 +378,8 @@ export default function Billing() {
       }
       setDiscountAmount(heldSale.discount_amount || 0);
       setDiscountType(heldSale.discount_type || 'fixed');
+      setSaleVatPercentage(parseFloat(heldSale.vat_percentage) || 0);
+      setNoVat(false);
       
       // Delete the held sale after retrieving it
       await api.delete(`/held-sales/${heldSale.id}`);
@@ -429,7 +446,7 @@ export default function Billing() {
         subtotal: parseFloat(cart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0)),
         discount_amount: parseFloat(discount),
         discount_type: discountType,
-        vat_percentage: 0,
+        vat_percentage: noVat ? 0 : (parseFloat(saleVatPercentage) || 0),
         vat_amount: parseFloat(vat),
         total: parseFloat(total),
         payment_method: `split:${paymentData.payments.map(p => `${p.method}:${p.amount}`).join(',')}`,
@@ -531,7 +548,7 @@ export default function Billing() {
         subtotal: parseFloat(cart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0)),
         discount_amount: parseFloat(discount),
         discount_type: discountType,
-        vat_percentage: 0,
+        vat_percentage: noVat ? 0 : (parseFloat(saleVatPercentage) || 0),
         vat_amount: parseFloat(vat),
         total: parseFloat(total),
         payment_method: paymentData.method,
@@ -588,7 +605,7 @@ export default function Billing() {
       subtotal,
       discount_amount: discount,
       discount_type: discountType,
-      vat_percentage: 0,
+      vat_percentage: noVat ? 0 : (parseFloat(saleVatPercentage) || 0),
       vat_amount: vat,
       total,
       payment_method: 'preview',
@@ -644,7 +661,7 @@ export default function Billing() {
     }, 250);
   };
 
-  const { subtotal, discount, vat, total } = calculateTotals();
+  const { subtotal, discount, vat, total, saleVatAmount } = calculateTotals();
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden gap-6">
@@ -921,6 +938,16 @@ export default function Billing() {
                 {discountAmount > 0 
                   ? `Discount: ${formatCurrency(discount)}`
                   : 'Add Discount'
+                }
+              </button>
+              <button
+                onClick={() => setShowVatModal(true)}
+                className="flex-1 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold flex items-center justify-center gap-1.5 text-xs"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                {(noVat || !saleVatPercentage || parseFloat(saleVatPercentage) <= 0 || saleVatAmount <= 0)
+                  ? 'Add VAT'
+                  : `VAT: ${parseFloat(saleVatPercentage)}%`
                 }
               </button>
             </div>
@@ -1219,6 +1246,22 @@ export default function Billing() {
             setDiscountType(discountData.type);
             setShowDiscountModal(false);
             toast.success('Discount applied successfully');
+          }}
+        />
+      )}
+
+      {showVatModal && (
+        <VATModal
+          subtotal={subtotal}
+          discount={discount}
+          currentVAT={noVat ? 0 : (parseFloat(saleVatPercentage) || 0)}
+          noVAT={noVat}
+          onClose={() => setShowVatModal(false)}
+          onApply={(vatData) => {
+            setSaleVatPercentage(vatData.percentage || 0);
+            setNoVat(!!vatData.noVat);
+            setShowVatModal(false);
+            toast.success('VAT applied successfully');
           }}
         />
       )}
