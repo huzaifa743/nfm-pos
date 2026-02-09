@@ -118,6 +118,8 @@ export default function Inventory() {
     categoryname: 'category_name',
     price: 'price',
     productprice: 'price',
+    saleprice: 'price',
+    sale_price: 'price',
     description: 'description',
     barcode: 'barcode',
     stocktracking: 'stock_tracking_enabled',
@@ -148,7 +150,7 @@ export default function Inventory() {
     const headers = [[
       'Name',
       'Category',
-      'Price',
+      'Sale Price',
       'Description',
       'Barcode',
       'Stock Tracking',
@@ -169,7 +171,7 @@ export default function Inventory() {
     const headers = [
       'Name',
       'Category',
-      'Price',
+      'Sale Price',
       'Description',
       'Barcode',
       'Stock Tracking',
