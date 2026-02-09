@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/api';
 import toast from 'react-hot-toast';
-import { Search, Eye, Printer, Trash2 } from 'lucide-react';
+import { Search, Eye, Printer, Trash2, FileDown, FileUp, FileText } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import ReceiptPrint from '../components/ReceiptPrint';
 import { getReceiptPrintStyles } from '../utils/receiptPrintStyles';
 
@@ -20,6 +23,8 @@ export default function SalesHistory() {
   const [selectedSale, setSelectedSale] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchSales();
@@ -107,6 +112,198 @@ export default function SalesHistory() {
     }
   };
 
+  const normalizeHeader = (value) =>
+    String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, '');
+
+  const headerMap = {
+    saleref: 'sale_ref',
+    salereference: 'sale_ref',
+    salenumber: 'sale_number',
+    saledate: 'sale_date',
+    date: 'sale_date',
+    paymentmethod: 'payment_method',
+    payment: 'payment_method',
+    total: 'total',
+    subtotal: 'subtotal',
+    discount: 'discount_amount',
+    discountamount: 'discount_amount',
+    discounttype: 'discount_type',
+    vat: 'vat_percentage',
+    vatpercentage: 'vat_percentage',
+    vatamount: 'vat_amount',
+    paymentamount: 'payment_amount',
+    changeamount: 'change_amount',
+    ordertype: 'order_type',
+    customername: 'customer_name',
+    customerphone: 'customer_phone',
+    customeremail: 'customer_email',
+    customeraddress: 'customer_address',
+    customercity: 'customer_city',
+    customercountry: 'customer_country',
+    itemname: 'item_name',
+    itemqty: 'item_quantity',
+    itemquantity: 'item_quantity',
+    itemunitprice: 'item_unit_price',
+    itemprice: 'item_unit_price',
+    itemtotal: 'item_total_price',
+    itemtotalprice: 'item_total_price',
+    itemvat: 'item_vat_percentage',
+    itemvatpercentage: 'item_vat_percentage',
+    itemvatamount: 'item_vat_amount',
+  };
+
+  const mapRowToPayload = (row) => {
+    const mapped = {};
+    Object.entries(row || {}).forEach(([key, value]) => {
+      const normalized = normalizeHeader(key);
+      const targetKey = headerMap[normalized];
+      if (targetKey) {
+        mapped[targetKey] = value;
+      }
+    });
+    return mapped;
+  };
+
+  const handleDownloadTemplate = () => {
+    const headers = [[
+      'Sale Ref',
+      'Sale Date (YYYY-MM-DD)',
+      'Payment Method',
+      'Total',
+      'Subtotal',
+      'Discount Amount',
+      'Discount Type',
+      'VAT %',
+      'VAT Amount',
+      'Payment Amount',
+      'Change Amount',
+      'Order Type',
+      'Customer Name',
+      'Customer Phone',
+      'Customer Email',
+      'Customer Address',
+      'Customer City',
+      'Customer Country',
+      'Item Name',
+      'Item Qty',
+      'Item Unit Price',
+      'Item Total',
+      'Item VAT %',
+      'Item VAT Amount',
+    ]];
+    const worksheet = XLSX.utils.aoa_to_sheet(headers);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
+    XLSX.writeFile(workbook, 'sales-import-template.xlsx');
+  };
+
+  const handleExportExcel = () => {
+    const headers = [
+      'Sale Number',
+      'Sale Date',
+      'Customer',
+      'Payment Method',
+      'Subtotal',
+      'Discount Amount',
+      'VAT %',
+      'VAT Amount',
+      'Total',
+    ];
+
+    const rows = sales.map((sale) => [
+      sale.sale_number || '',
+      sale.created_at || '',
+      sale.customer_name || 'Walk-in',
+      sale.payment_method || '',
+      sale.subtotal != null ? Number(sale.subtotal) : '',
+      sale.discount_amount != null ? Number(sale.discount_amount) : 0,
+      sale.vat_percentage != null ? Number(sale.vat_percentage) : 0,
+      sale.vat_amount != null ? Number(sale.vat_amount) : 0,
+      sale.total != null ? Number(sale.total) : '',
+    ]);
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sales');
+    XLSX.writeFile(workbook, 'sales-history-export.xlsx');
+  };
+
+  const handleExportPdf = () => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    doc.setFontSize(14);
+    doc.text(t('salesHistory.title'), 40, 40);
+
+    const headers = [[
+      'Sale Number',
+      'Date',
+      'Customer',
+      'Payment',
+      'Total',
+    ]];
+
+    const rows = sales.map((sale) => [
+      sale.sale_number || '',
+      formatDate(sale.created_at),
+      sale.customer_name || 'Walk-in',
+      sale.payment_method || '',
+      sale.total != null ? formatCurrency(sale.total) : '',
+    ]);
+
+    autoTable(doc, {
+      startY: 60,
+      head: headers,
+      body: rows,
+      styles: { fontSize: 9 },
+    });
+
+    doc.save('sales-history-export.pdf');
+  };
+
+  const handleImportExcel = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+      if (!rawRows.length) {
+        toast.error(t('salesHistory.importEmpty'));
+        return;
+      }
+
+      const rows = rawRows
+        .map(mapRowToPayload)
+        .filter((row) => Object.keys(row).length > 0);
+
+      if (!rows.length) {
+        toast.error(t('salesHistory.importNoColumns'));
+        return;
+      }
+
+      const response = await api.post('/sales/import', { rows });
+      if (response.data?.errors?.length) {
+        toast.error(t('salesHistory.importPartial'));
+      } else {
+        toast.success(t('salesHistory.importSuccess'));
+      }
+      fetchSales();
+    } catch (error) {
+      console.error('Error importing sales:', error);
+      toast.error(error.response?.data?.error || t('salesHistory.importFailed'));
+    } finally {
+      setImporting(false);
+      event.target.value = '';
+    }
+  };
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleString();
@@ -116,7 +313,46 @@ export default function SalesHistory() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-800">{t('salesHistory.title')}</h1>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={handleExportExcel}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2"
+          >
+            <FileDown className="w-5 h-5" />
+            {t('salesHistory.exportExcel')}
+          </button>
+          <button
+            onClick={handleExportPdf}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+          >
+            <FileText className="w-5 h-5" />
+            {t('salesHistory.exportPdf')}
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <FileUp className="w-5 h-5" />
+            {t('salesHistory.importExcel')}
+          </button>
+          <button
+            onClick={handleDownloadTemplate}
+            className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 flex items-center gap-2"
+          >
+            <FileDown className="w-5 h-5" />
+            {t('salesHistory.downloadTemplate')}
+          </button>
+        </div>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.xls"
+        onChange={handleImportExcel}
+        className="hidden"
+      />
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4">

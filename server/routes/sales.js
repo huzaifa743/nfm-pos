@@ -7,6 +7,47 @@ const router = express.Router();
 const deliveryMigratedTenants = new Set();
 const saleItemsVatMigratedTenants = new Set();
 
+function normalizeNumber(value) {
+  if (value == null || value === '') return null;
+  const parsed = parseFloat(String(value).trim());
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function normalizeDateValue(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 19).replace('T', ' ');
+  }
+  if (typeof value === 'number') {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const date = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 19).replace('T', ' ');
+  }
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return `${trimmed} 12:00:00`;
+  return trimmed;
+}
+
+function normalizePaymentMethod(value) {
+  if (!value) return 'cash';
+  const normalized = String(value).trim().toLowerCase();
+  if (['cash', 'card', 'online'].includes(normalized)) return normalized;
+  if (['payafterdelivery', 'pay after delivery', 'pay_after_delivery', 'pay-after-delivery'].includes(normalized)) {
+    return 'payAfterDelivery';
+  }
+  return 'cash';
+}
+
+function normalizeOrderType(value) {
+  if (!value) return 'dine-in';
+  const normalized = String(value).trim().toLowerCase();
+  if (['dine-in', 'dinein', 'dine in'].includes(normalized)) return 'dine-in';
+  if (['takeaway', 'take-away', 'take away'].includes(normalized)) return 'takeaway';
+  if (['delivery', 'deliveries'].includes(normalized)) return 'delivery';
+  return 'dine-in';
+}
+
 async function ensureSaleItemsVatColumns(db, tenantCode) {
   if (!tenantCode || saleItemsVatMigratedTenants.has(tenantCode)) return;
   try {
@@ -89,6 +130,219 @@ router.get('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, as
     res.json(sales);
   } catch (error) {
     console.error('Get sales error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Import sales from Excel
+router.post('/import', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
+  try {
+    const tenantCode = req.user?.tenant_code;
+    if (tenantCode) {
+      await ensureDeliveryColumns(req.db, tenantCode);
+      await ensureSaleItemsVatColumns(req.db, tenantCode);
+    }
+
+    const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+    if (!rows.length) {
+      return res.status(400).json({ error: 'No sales rows provided' });
+    }
+
+    const getOrCreateCustomer = async (customer) => {
+      const name = customer?.name ? String(customer.name).trim() : '';
+      const phone = customer?.phone ? String(customer.phone).trim() : '';
+      if (!name && !phone) return null;
+
+      if (phone) {
+        const existingByPhone = await req.db.get('SELECT id FROM customers WHERE phone = ?', [phone]);
+        if (existingByPhone) return existingByPhone.id;
+      }
+
+      if (name) {
+        const existingByName = await req.db.get('SELECT id FROM customers WHERE name = ?', [name]);
+        if (existingByName) return existingByName.id;
+      }
+
+      const result = await req.db.run(
+        'INSERT INTO customers (name, phone, email, address, city, country) VALUES (?, ?, ?, ?, ?, ?)',
+        [
+          name || 'Customer',
+          phone || null,
+          customer?.email || null,
+          customer?.address || null,
+          customer?.city || null,
+          customer?.country || null,
+        ]
+      );
+      return result.id;
+    };
+
+    const ensureImportedProductId = async () => {
+      const existing = await req.db.get('SELECT id FROM products WHERE name = ?', ['Imported Sale']);
+      if (existing) return existing.id;
+
+      const result = await req.db.run(
+        'INSERT INTO products (name, price, description, stock_quantity) VALUES (?, ?, ?, ?)',
+        ['Imported Sale', 0, 'Imported sales placeholder item', 0]
+      );
+      return result.id;
+    };
+
+    const grouped = new Map();
+    rows.forEach((row, index) => {
+      const ref = row.sale_ref || row.sale_number || `row-${index}`;
+      if (!grouped.has(ref)) {
+        grouped.set(ref, []);
+      }
+      grouped.get(ref).push(row);
+    });
+
+    let created = 0;
+    let skipped = 0;
+    const errors = [];
+
+    for (const [ref, groupRows] of grouped.entries()) {
+      const base = groupRows[0] || {};
+      const createdAt = normalizeDateValue(base.sale_date || base.created_at);
+      if (!createdAt) {
+        skipped += 1;
+        errors.push({ ref, error: 'Missing sale date' });
+        continue;
+      }
+
+      const paymentMethod = normalizePaymentMethod(base.payment_method);
+      const orderType = normalizeOrderType(base.order_type);
+      const discountAmount = normalizeNumber(base.discount_amount) || 0;
+      const vatPercentage = normalizeNumber(base.vat_percentage) || 0;
+      const vatAmount = normalizeNumber(base.vat_amount) || 0;
+
+      const customerId = await getOrCreateCustomer({
+        name: base.customer_name,
+        phone: base.customer_phone,
+        email: base.customer_email,
+        address: base.customer_address,
+        city: base.customer_city,
+        country: base.customer_country,
+      });
+
+      const items = [];
+      for (const row of groupRows) {
+        const itemName = row.item_name ? String(row.item_name).trim() : '';
+        const quantity = normalizeNumber(row.item_quantity) || 0;
+        const unitPrice = normalizeNumber(row.item_unit_price);
+        const totalPrice = normalizeNumber(row.item_total_price);
+        const vatPct = normalizeNumber(row.item_vat_percentage) || 0;
+        const vatAmt = normalizeNumber(row.item_vat_amount) || 0;
+
+        if (!itemName && unitPrice == null && totalPrice == null) {
+          continue;
+        }
+
+        const finalQty = quantity || 1;
+        const finalUnitPrice = unitPrice != null ? unitPrice : (totalPrice != null ? totalPrice / finalQty : 0);
+        const finalTotal = totalPrice != null ? totalPrice : finalUnitPrice * finalQty;
+
+        items.push({
+          name: itemName || 'Imported Item',
+          quantity: finalQty,
+          unitPrice: finalUnitPrice,
+          totalPrice: finalTotal,
+          vatPercentage: vatPct,
+          vatAmount: vatAmt,
+        });
+      }
+
+      let subtotal = normalizeNumber(base.subtotal);
+      let total = normalizeNumber(base.total);
+
+      if (items.length > 0) {
+        const itemsTotal = items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+        if (subtotal == null) subtotal = itemsTotal;
+        if (total == null) total = itemsTotal - discountAmount + vatAmount;
+      }
+
+      if (total == null) {
+        skipped += 1;
+        errors.push({ ref, error: 'Missing total amount' });
+        continue;
+      }
+
+      const paymentAmount = normalizeNumber(base.payment_amount) || total;
+      const changeAmount = normalizeNumber(base.change_amount) || 0;
+
+      let saleNumber = base.sale_number ? String(base.sale_number).trim() : '';
+      if (!saleNumber) {
+        saleNumber = `IMPORT-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+      }
+      const existingSaleNumber = await req.db.get('SELECT id FROM sales WHERE sale_number = ?', [saleNumber]);
+      if (existingSaleNumber) {
+        saleNumber = `IMPORT-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+      }
+
+      const saleResult = await req.db.run(
+        `INSERT INTO sales (sale_number, customer_id, user_id, subtotal, discount_amount, discount_type,
+         vat_percentage, vat_amount, total, payment_method, payment_amount, change_amount, order_type, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          saleNumber,
+          customerId,
+          req.user.id,
+          parseFloat(subtotal != null ? subtotal : total),
+          parseFloat(discountAmount) || 0,
+          base.discount_type || 'fixed',
+          parseFloat(vatPercentage) || 0,
+          parseFloat(vatAmount) || 0,
+          parseFloat(total),
+          paymentMethod,
+          parseFloat(paymentAmount),
+          parseFloat(changeAmount) || 0,
+          orderType,
+          createdAt,
+        ]
+      );
+
+      if (!items.length) {
+        const importedProductId = await ensureImportedProductId();
+        await req.db.run(
+          'INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, total_price, vat_percentage, vat_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [saleResult.id, importedProductId, 'Imported Sale', 1, total, total, 0, 0]
+        );
+      } else {
+        for (const item of items) {
+          let productId = null;
+          const existingProduct = await req.db.get('SELECT id FROM products WHERE name = ?', [item.name]);
+          if (existingProduct) {
+            productId = existingProduct.id;
+          } else {
+            const productResult = await req.db.run(
+              'INSERT INTO products (name, price, description, stock_quantity) VALUES (?, ?, ?, ?)',
+              [item.name, item.unitPrice || 0, 'Imported sales item', 0]
+            );
+            productId = productResult.id;
+          }
+
+          await req.db.run(
+            'INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, total_price, vat_percentage, vat_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+              saleResult.id,
+              productId,
+              item.name,
+              parseFloat(item.quantity) || 1,
+              parseFloat(item.unitPrice) || 0,
+              parseFloat(item.totalPrice) || 0,
+              parseFloat(item.vatPercentage) || 0,
+              parseFloat(item.vatAmount) || 0,
+            ]
+          );
+        }
+      }
+
+      created += 1;
+    }
+
+    res.json({ imported: created, skipped, errors });
+  } catch (error) {
+    console.error('Import sales error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

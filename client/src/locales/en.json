@@ -96,7 +96,16 @@
     "total": "Total",
     "paymentMethod": "Payment Method",
     "viewReceipt": "View Receipt",
-    "reprint": "Reprint"
+    "reprint": "Reprint",
+    "exportExcel": "Export Excel",
+    "exportPdf": "Export PDF",
+    "importExcel": "Import Excel",
+    "downloadTemplate": "Download Template",
+    "importSuccess": "Sales imported",
+    "importFailed": "Sales import failed",
+    "importEmpty": "No rows found in the Excel file",
+    "importNoColumns": "No recognizable columns found in the Excel file",
+    "importPartial": "Sales imported with some errors"
   },
   "reports": {
     "title": "Reports",

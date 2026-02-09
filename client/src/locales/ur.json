@@ -96,7 +96,16 @@
     "total": "کل",
     "paymentMethod": "ادائیگی کا طریقہ",
     "viewReceipt": "رسید دیکھیں",
-    "reprint": "دوبارہ پرنٹ کریں"
+    "reprint": "دوبارہ پرنٹ کریں",
+    "exportExcel": "ایکسِل برآمد کریں",
+    "exportPdf": "پی ڈی ایف برآمد کریں",
+    "importExcel": "ایکسِل درآمد کریں",
+    "downloadTemplate": "ٹیمپلیٹ ڈاؤن لوڈ کریں",
+    "importSuccess": "سیلز درآمد ہو گئیں",
+    "importFailed": "سیلز درآمد ناکام",
+    "importEmpty": "ایکسِل فائل میں قطاریں نہیں ہیں",
+    "importNoColumns": "ایکسِل فائل میں کوئی پہچانی جانے والی کالمز نہیں ہیں",
+    "importPartial": "کچھ غلطیوں کے ساتھ درآمد مکمل ہوئی"
   },
   "reports": {
     "title": "رپورٹس",

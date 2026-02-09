@@ -96,7 +96,16 @@
     "total": "الإجمالي",
     "paymentMethod": "طريقة الدفع",
     "viewReceipt": "عرض الإيصال",
-    "reprint": "إعادة طباعة"
+    "reprint": "إعادة طباعة",
+    "exportExcel": "تصدير Excel",
+    "exportPdf": "تصدير PDF",
+    "importExcel": "استيراد Excel",
+    "downloadTemplate": "تنزيل القالب",
+    "importSuccess": "تم استيراد المبيعات",
+    "importFailed": "فشل استيراد المبيعات",
+    "importEmpty": "لا توجد صفوف في ملف Excel",
+    "importNoColumns": "لا توجد أعمدة معروفة في ملف Excel",
+    "importPartial": "تم الاستيراد مع بعض الأخطاء"
   },
   "reports": {
     "title": "التقارير",
