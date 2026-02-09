@@ -76,7 +76,16 @@
     "save": "حفظ",
     "cancel": "إلغاء",
     "nameRequired": "الاسم مطلوب",
-    "priceRequired": "السعر مطلوب"
+    "priceRequired": "السعر مطلوب",
+    "exportExcel": "تصدير Excel",
+    "exportPdf": "تصدير PDF",
+    "importExcel": "استيراد Excel",
+    "downloadTemplate": "تنزيل القالب",
+    "importSuccess": "تم استيراد المخزون",
+    "importFailed": "فشل استيراد المخزون",
+    "importEmpty": "لا توجد صفوف في ملف Excel",
+    "importNoColumns": "لا توجد أعمدة معروفة في ملف Excel",
+    "importPartial": "تم الاستيراد مع بعض الأخطاء"
   },
   "salesHistory": {
     "title": "سجل المبيعات",

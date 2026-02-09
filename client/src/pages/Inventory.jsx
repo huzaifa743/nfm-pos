@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../contexts/SettingsContext';
 import api from '../api/api';
 import toast from 'react-hot-toast';
-import { Plus, Search, Edit, Trash2, X, Folder } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, X, Folder, FileDown, FileUp, FileText } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import ProductModal from '../components/ProductModal';
 
 export default function Inventory() {
@@ -18,6 +21,8 @@ export default function Inventory() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef(null);
 
   const [categoryForm, setCategoryForm] = useState({
     name: '',
@@ -100,17 +105,218 @@ export default function Inventory() {
     }
   };
 
+  const normalizeHeader = (value) =>
+    String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, '');
+
+  const headerMap = {
+    name: 'name',
+    productname: 'name',
+    category: 'category_name',
+    categoryname: 'category_name',
+    price: 'price',
+    productprice: 'price',
+    description: 'description',
+    barcode: 'barcode',
+    stocktracking: 'stock_tracking_enabled',
+    stocktrackingenabled: 'stock_tracking_enabled',
+    stockqty: 'stock_quantity',
+    stockquantity: 'stock_quantity',
+    expirydate: 'expiry_date',
+    purchaserate: 'purchase_rate',
+    hasweight: 'has_weight',
+    weightunit: 'weight_unit',
+    vat: 'vat_percentage',
+    vatpercentage: 'vat_percentage',
+  };
+
+  const mapRowToPayload = (row) => {
+    const mapped = {};
+    Object.entries(row || {}).forEach(([key, value]) => {
+      const normalized = normalizeHeader(key);
+      const targetKey = headerMap[normalized];
+      if (targetKey) {
+        mapped[targetKey] = value;
+      }
+    });
+    return mapped;
+  };
+
+  const handleDownloadTemplate = () => {
+    const headers = [[
+      'Name',
+      'Category',
+      'Price',
+      'Description',
+      'Barcode',
+      'Stock Tracking',
+      'Stock Qty',
+      'Expiry Date (YYYY-MM-DD)',
+      'Purchase Rate',
+      'Has Weight',
+      'Weight Unit',
+      'VAT %',
+    ]];
+    const worksheet = XLSX.utils.aoa_to_sheet(headers);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
+    XLSX.writeFile(workbook, 'inventory-import-template.xlsx');
+  };
+
+  const handleExportExcel = () => {
+    const headers = [
+      'Name',
+      'Category',
+      'Price',
+      'Description',
+      'Barcode',
+      'Stock Tracking',
+      'Stock Qty',
+      'Expiry Date',
+      'Purchase Rate',
+      'Has Weight',
+      'Weight Unit',
+      'VAT %',
+    ];
+
+    const rows = products.map((product) => [
+      product.name || '',
+      product.category_name || '',
+      product.price != null ? Number(product.price) : '',
+      product.description || '',
+      product.barcode || '',
+      product.stock_tracking_enabled === 1 || product.stock_tracking_enabled === true ? 'Yes' : 'No',
+      product.stock_tracking_enabled === 1 || product.stock_tracking_enabled === true ? (product.stock_quantity || 0) : 0,
+      product.expiry_date || '',
+      product.purchase_rate != null ? Number(product.purchase_rate) : '',
+      product.has_weight === 1 || product.has_weight === true ? 'Yes' : 'No',
+      product.has_weight === 1 || product.has_weight === true ? (product.weight_unit || '') : '',
+      product.vat_percentage != null ? Number(product.vat_percentage) : 0,
+    ]);
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory');
+    XLSX.writeFile(workbook, 'inventory-export.xlsx');
+  };
+
+  const handleExportPdf = () => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    doc.setFontSize(14);
+    doc.text(t('inventory.title'), 40, 40);
+
+    const headers = [[
+      'Name',
+      'Category',
+      'Price',
+      'Stock Qty',
+      'Barcode',
+      'VAT %',
+    ]];
+
+    const rows = products.map((product) => [
+      product.name || '',
+      product.category_name || '',
+      product.price != null ? formatCurrency(product.price) : '',
+      product.stock_tracking_enabled === 1 || product.stock_tracking_enabled === true ? (product.stock_quantity || 0) : '',
+      product.barcode || '',
+      product.vat_percentage != null ? Number(product.vat_percentage) : 0,
+    ]);
+
+    autoTable(doc, {
+      startY: 60,
+      head: headers,
+      body: rows,
+      styles: { fontSize: 9 },
+    });
+
+    doc.save('inventory-export.pdf');
+  };
+
+  const handleImportExcel = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+      if (!rawRows.length) {
+        toast.error(t('inventory.importEmpty'));
+        return;
+      }
+
+      const rows = rawRows
+        .map(mapRowToPayload)
+        .filter((row) => Object.keys(row).length > 0);
+
+      if (!rows.length) {
+        toast.error(t('inventory.importNoColumns'));
+        return;
+      }
+
+      const response = await api.post('/products/import', { rows });
+      if (response.data?.errors?.length) {
+        toast.error(t('inventory.importPartial'));
+      } else {
+        toast.success(t('inventory.importSuccess'));
+      }
+      fetchProducts();
+    } catch (error) {
+      console.error('Error importing inventory:', error);
+      toast.error(error.response?.data?.error || t('inventory.importFailed'));
+    } finally {
+      setImporting(false);
+      event.target.value = '';
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-800">{t('inventory.title')}</h1>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={() => setShowCategoryModal(true)}
             className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
           >
             <Folder className="w-5 h-5" />
             {t('inventory.manageCategories')}
+          </button>
+          <button
+            onClick={handleExportExcel}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2"
+          >
+            <FileDown className="w-5 h-5" />
+            {t('inventory.exportExcel')}
+          </button>
+          <button
+            onClick={handleExportPdf}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+          >
+            <FileText className="w-5 h-5" />
+            {t('inventory.exportPdf')}
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <FileUp className="w-5 h-5" />
+            {t('inventory.importExcel')}
+          </button>
+          <button
+            onClick={handleDownloadTemplate}
+            className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 flex items-center gap-2"
+          >
+            <FileDown className="w-5 h-5" />
+            {t('inventory.downloadTemplate')}
           </button>
           <button
             onClick={() => {
@@ -124,6 +330,14 @@ export default function Inventory() {
           </button>
         </div>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.xls"
+        onChange={handleImportExcel}
+        className="hidden"
+      />
 
       <div className="flex gap-4">
         <div className="flex-1 relative">

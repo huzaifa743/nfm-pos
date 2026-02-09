@@ -76,7 +76,16 @@
     "save": "Save",
     "cancel": "Cancel",
     "nameRequired": "Name is required",
-    "priceRequired": "Price is required"
+    "priceRequired": "Price is required",
+    "exportExcel": "Export Excel",
+    "exportPdf": "Export PDF",
+    "importExcel": "Import Excel",
+    "downloadTemplate": "Download Template",
+    "importSuccess": "Inventory imported",
+    "importFailed": "Inventory import failed",
+    "importEmpty": "No rows found in the Excel file",
+    "importNoColumns": "No recognizable columns found in the Excel file",
+    "importPartial": "Inventory imported with some errors"
   },
   "salesHistory": {
     "title": "Sales History",

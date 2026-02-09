@@ -76,7 +76,16 @@
     "save": "محفوظ کریں",
     "cancel": "منسوخ کریں",
     "nameRequired": "نام ضروری ہے",
-    "priceRequired": "قیمت ضروری ہے"
+    "priceRequired": "قیمت ضروری ہے",
+    "exportExcel": "ایکسِل برآمد کریں",
+    "exportPdf": "پی ڈی ایف برآمد کریں",
+    "importExcel": "ایکسِل درآمد کریں",
+    "downloadTemplate": "ٹیمپلیٹ ڈاؤن لوڈ کریں",
+    "importSuccess": "انوینٹری درآمد ہو گئی",
+    "importFailed": "انوینٹری درآمد ناکام",
+    "importEmpty": "ایکسِل فائل میں قطاریں نہیں ہیں",
+    "importNoColumns": "ایکسِل فائل میں کوئی پہچانی جانے والی کالمز نہیں ہیں",
+    "importPartial": "کچھ غلطیوں کے ساتھ درآمد مکمل ہوئی"
   },
   "salesHistory": {
     "title": "سیلز ہسٹری",

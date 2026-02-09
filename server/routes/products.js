@@ -14,6 +14,43 @@ const purchaseRateMigratedTenants = new Set();
 const hasWeightMigratedTenants = new Set();
 const vatPercentageMigratedTenants = new Set();
 
+function normalizeBoolean(value) {
+  if (value === true || value === 1 || value === '1') return true;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return ['true', 'yes', 'y', 'enabled'].includes(normalized);
+  }
+  return false;
+}
+
+function normalizeNumber(value) {
+  if (value == null || value === '') return null;
+  const parsed = parseFloat(String(value).trim());
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function normalizeDateValue(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  if (typeof value === 'number') {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const date = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
+  }
+  const trimmed = String(value).trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeWeightUnit(value) {
+  if (!value) return null;
+  const normalized = String(value).trim().toLowerCase();
+  if (['kg', 'kilogram', 'kilograms'].includes(normalized)) return 'kg';
+  if (['g', 'gram', 'grams'].includes(normalized)) return 'gram';
+  return null;
+}
+
 async function ensureVatPercentageColumn(db, tenantCode) {
   if (!tenantCode || vatPercentageMigratedTenants.has(tenantCode)) return;
   try {
@@ -147,6 +184,114 @@ router.get('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, as
     res.json(products);
   } catch (error) {
     console.error('Get products error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Import products from Excel
+router.post('/import', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
+  try {
+    const tenantCode = req.user?.tenant_code;
+    if (tenantCode) {
+      await ensureExpiryDateColumn(req.db, tenantCode);
+      await ensureBarcodeColumn(req.db, tenantCode);
+      await ensureStockTrackingColumn(req.db, tenantCode);
+      await ensurePurchaseRateColumn(req.db, tenantCode);
+      await ensureHasWeightColumns(req.db, tenantCode);
+      await ensureVatPercentageColumn(req.db, tenantCode);
+    }
+
+    const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+    if (!rows.length) {
+      return res.status(400).json({ error: 'No inventory rows provided' });
+    }
+
+    const categories = await req.db.query('SELECT id, name FROM categories');
+    const categoryMap = new Map(
+      categories.map((category) => [String(category.name).trim().toLowerCase(), category.id])
+    );
+
+    const resolveCategoryId = async (categoryName) => {
+      if (!categoryName) return null;
+      const normalized = String(categoryName).trim();
+      if (!normalized) return null;
+      const key = normalized.toLowerCase();
+      if (categoryMap.has(key)) return categoryMap.get(key);
+
+      const result = await req.db.run(
+        'INSERT INTO categories (name, description) VALUES (?, ?)',
+        [normalized, null]
+      );
+      categoryMap.set(key, result.id);
+      return result.id;
+    };
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+    const errors = [];
+
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index] || {};
+      const name = String(row.name || '').trim();
+      const priceValue = normalizeNumber(row.price);
+      if (!name || priceValue == null || priceValue < 0) {
+        skipped += 1;
+        errors.push({ index, error: 'Missing or invalid name/price' });
+        continue;
+      }
+
+      const categoryName = row.category_name || row.category || '';
+      const categoryId = await resolveCategoryId(categoryName);
+
+      const barcodeValue = row.barcode != null ? String(row.barcode).trim() : null;
+      const stockTracking = normalizeBoolean(row.stock_tracking_enabled) ? 1 : 0;
+      const stockQty = stockTracking ? parseInt(row.stock_quantity, 10) || 0 : 0;
+      const expiry = normalizeDateValue(row.expiry_date);
+      const purchaseRate = normalizeNumber(row.purchase_rate);
+      const hasWeight = normalizeBoolean(row.has_weight) ? 1 : 0;
+      const weightUnit = hasWeight ? (normalizeWeightUnit(row.weight_unit) || 'gram') : null;
+      const vatPctValue = normalizeNumber(row.vat_percentage);
+      const vatPct = vatPctValue != null ? Math.max(0, Math.min(100, vatPctValue)) : 0;
+      const descriptionValue = row.description != null ? String(row.description).trim() : null;
+
+      let existing = null;
+      if (barcodeValue) {
+        existing = await req.db.get('SELECT id FROM products WHERE barcode = ?', [barcodeValue]);
+      }
+
+      if (!existing) {
+        if (categoryId) {
+          existing = await req.db.get(
+            'SELECT id FROM products WHERE LOWER(name) = ? AND category_id = ?',
+            [name.toLowerCase(), categoryId]
+          );
+        } else {
+          existing = await req.db.get(
+            'SELECT id FROM products WHERE LOWER(name) = ? AND category_id IS NULL',
+            [name.toLowerCase()]
+          );
+        }
+      }
+
+      if (existing) {
+        await req.db.run(
+          'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, expiry_date = ?, barcode = ?, stock_tracking_enabled = ?, stock_quantity = ?, purchase_rate = ?, has_weight = ?, weight_unit = ?, vat_percentage = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [name, priceValue, categoryId || null, descriptionValue, expiry, barcodeValue, stockTracking, stockQty, purchaseRate, hasWeight, weightUnit, vatPct, existing.id]
+        );
+        updated += 1;
+      } else {
+        await req.db.run(
+          'INSERT INTO products (name, price, category_id, description, stock_quantity, expiry_date, barcode, stock_tracking_enabled, purchase_rate, has_weight, weight_unit, vat_percentage) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [name, priceValue, categoryId || null, descriptionValue, stockQty, expiry, barcodeValue, stockTracking, purchaseRate, hasWeight, weightUnit, vatPct]
+        );
+        created += 1;
+      }
+    }
+
+    res.json({ imported: created, updated, skipped, errors });
+  } catch (error) {
+    console.error('Import products error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
