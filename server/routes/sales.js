@@ -148,31 +148,16 @@ router.post('/import', authenticateToken, requireTenant, getTenantDb, closeTenan
       return res.status(400).json({ error: 'No sales rows provided' });
     }
 
-    const getOrCreateCustomer = async (customer) => {
-      const name = customer?.name ? String(customer.name).trim() : '';
-      const phone = customer?.phone ? String(customer.phone).trim() : '';
-      if (!name && !phone) return null;
+    const getOrCreateCustomer = async (customerName) => {
+      const name = customerName ? String(customerName).trim() : '';
+      if (!name || name.toLowerCase() === 'walk-in') return null;
 
-      if (phone) {
-        const existingByPhone = await req.db.get('SELECT id FROM customers WHERE phone = ?', [phone]);
-        if (existingByPhone) return existingByPhone.id;
-      }
-
-      if (name) {
-        const existingByName = await req.db.get('SELECT id FROM customers WHERE name = ?', [name]);
-        if (existingByName) return existingByName.id;
-      }
+      const existingByName = await req.db.get('SELECT id FROM customers WHERE name = ?', [name]);
+      if (existingByName) return existingByName.id;
 
       const result = await req.db.run(
-        'INSERT INTO customers (name, phone, email, address, city, country) VALUES (?, ?, ?, ?, ?, ?)',
-        [
-          name || 'Customer',
-          phone || null,
-          customer?.email || null,
-          customer?.address || null,
-          customer?.city || null,
-          customer?.country || null,
-        ]
+        'INSERT INTO customers (name) VALUES (?)',
+        [name]
       );
       return result.id;
     };
@@ -188,25 +173,16 @@ router.post('/import', authenticateToken, requireTenant, getTenantDb, closeTenan
       return result.id;
     };
 
-    const grouped = new Map();
-    rows.forEach((row, index) => {
-      const ref = row.sale_ref || row.sale_number || `row-${index}`;
-      if (!grouped.has(ref)) {
-        grouped.set(ref, []);
-      }
-      grouped.get(ref).push(row);
-    });
-
     let created = 0;
     let skipped = 0;
     const errors = [];
 
-    for (const [ref, groupRows] of grouped.entries()) {
-      const base = groupRows[0] || {};
+    for (let index = 0; index < rows.length; index += 1) {
+      const base = rows[index] || {};
       const createdAt = normalizeDateValue(base.sale_date || base.created_at);
       if (!createdAt) {
         skipped += 1;
-        errors.push({ ref, error: 'Missing sale date' });
+        errors.push({ index, error: 'Missing sale date' });
         continue;
       }
 
@@ -216,59 +192,18 @@ router.post('/import', authenticateToken, requireTenant, getTenantDb, closeTenan
       const vatPercentage = normalizeNumber(base.vat_percentage) || 0;
       const vatAmount = normalizeNumber(base.vat_amount) || 0;
 
-      const customerId = await getOrCreateCustomer({
-        name: base.customer_name,
-        phone: base.customer_phone,
-        email: base.customer_email,
-        address: base.customer_address,
-        city: base.customer_city,
-        country: base.customer_country,
-      });
-
-      const items = [];
-      for (const row of groupRows) {
-        const itemName = row.item_name ? String(row.item_name).trim() : '';
-        const quantity = normalizeNumber(row.item_quantity) || 0;
-        const unitPrice = normalizeNumber(row.item_unit_price);
-        const totalPrice = normalizeNumber(row.item_total_price);
-        const vatPct = normalizeNumber(row.item_vat_percentage) || 0;
-        const vatAmt = normalizeNumber(row.item_vat_amount) || 0;
-
-        if (!itemName && unitPrice == null && totalPrice == null) {
-          continue;
-        }
-
-        const finalQty = quantity || 1;
-        const finalUnitPrice = unitPrice != null ? unitPrice : (totalPrice != null ? totalPrice / finalQty : 0);
-        const finalTotal = totalPrice != null ? totalPrice : finalUnitPrice * finalQty;
-
-        items.push({
-          name: itemName || 'Imported Item',
-          quantity: finalQty,
-          unitPrice: finalUnitPrice,
-          totalPrice: finalTotal,
-          vatPercentage: vatPct,
-          vatAmount: vatAmt,
-        });
-      }
+      const customerId = await getOrCreateCustomer(base.customer_name);
 
       let subtotal = normalizeNumber(base.subtotal);
       let total = normalizeNumber(base.total);
 
-      if (items.length > 0) {
-        const itemsTotal = items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
-        if (subtotal == null) subtotal = itemsTotal;
-        if (total == null) total = itemsTotal - discountAmount + vatAmount;
-      }
-
       if (total == null) {
         skipped += 1;
-        errors.push({ ref, error: 'Missing total amount' });
+        errors.push({ index, error: 'Missing total amount' });
         continue;
       }
 
-      const paymentAmount = normalizeNumber(base.payment_amount) || total;
-      const changeAmount = normalizeNumber(base.change_amount) || 0;
+      if (subtotal == null) subtotal = total;
 
       let saleNumber = base.sale_number ? String(base.sale_number).trim() : '';
       if (!saleNumber) {
@@ -279,6 +214,9 @@ router.post('/import', authenticateToken, requireTenant, getTenantDb, closeTenan
         saleNumber = `IMPORT-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
       }
 
+      const paymentAmount = normalizeNumber(base.payment_amount) || total;
+      const changeAmount = normalizeNumber(base.change_amount) || 0;
+
       const saleResult = await req.db.run(
         `INSERT INTO sales (sale_number, customer_id, user_id, subtotal, discount_amount, discount_type,
          vat_percentage, vat_amount, total, payment_method, payment_amount, change_amount, order_type, created_at)
@@ -287,7 +225,7 @@ router.post('/import', authenticateToken, requireTenant, getTenantDb, closeTenan
           saleNumber,
           customerId,
           req.user.id,
-          parseFloat(subtotal != null ? subtotal : total),
+          parseFloat(subtotal),
           parseFloat(discountAmount) || 0,
           base.discount_type || 'fixed',
           parseFloat(vatPercentage) || 0,
@@ -301,41 +239,11 @@ router.post('/import', authenticateToken, requireTenant, getTenantDb, closeTenan
         ]
       );
 
-      if (!items.length) {
-        const importedProductId = await ensureImportedProductId();
-        await req.db.run(
-          'INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, total_price, vat_percentage, vat_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [saleResult.id, importedProductId, 'Imported Sale', 1, total, total, 0, 0]
-        );
-      } else {
-        for (const item of items) {
-          let productId = null;
-          const existingProduct = await req.db.get('SELECT id FROM products WHERE name = ?', [item.name]);
-          if (existingProduct) {
-            productId = existingProduct.id;
-          } else {
-            const productResult = await req.db.run(
-              'INSERT INTO products (name, price, description, stock_quantity) VALUES (?, ?, ?, ?)',
-              [item.name, item.unitPrice || 0, 'Imported sales item', 0]
-            );
-            productId = productResult.id;
-          }
-
-          await req.db.run(
-            'INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, total_price, vat_percentage, vat_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [
-              saleResult.id,
-              productId,
-              item.name,
-              parseFloat(item.quantity) || 1,
-              parseFloat(item.unitPrice) || 0,
-              parseFloat(item.totalPrice) || 0,
-              parseFloat(item.vatPercentage) || 0,
-              parseFloat(item.vatAmount) || 0,
-            ]
-          );
-        }
-      }
+      const importedProductId = await ensureImportedProductId();
+      await req.db.run(
+        'INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, total_price, vat_percentage, vat_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [saleResult.id, importedProductId, 'Imported Sale', 1, total, total, 0, 0]
+      );
 
       created += 1;
     }
