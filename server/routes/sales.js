@@ -190,20 +190,28 @@ router.post('/import', authenticateToken, requireTenant, getTenantDb, closeTenan
       const orderType = normalizeOrderType(base.order_type);
       const discountAmount = normalizeNumber(base.discount_amount) || 0;
       const vatPercentage = normalizeNumber(base.vat_percentage) || 0;
-      const vatAmount = normalizeNumber(base.vat_amount) || 0;
+      let vatAmount = normalizeNumber(base.vat_amount);
 
       const customerId = await getOrCreateCustomer(base.customer_name);
 
       let subtotal = normalizeNumber(base.subtotal);
       let total = normalizeNumber(base.total);
 
-      if (total == null) {
+      if (subtotal == null && total == null) {
         skipped += 1;
-        errors.push({ index, error: 'Missing total amount' });
+        errors.push({ index, error: 'Missing subtotal or total amount' });
         continue;
       }
 
       if (subtotal == null) subtotal = total;
+
+      if (vatAmount == null && vatPercentage > 0 && subtotal != null) {
+        vatAmount = (subtotal * vatPercentage) / 100;
+      }
+
+      if (total == null) {
+        total = (subtotal || 0) - discountAmount + (vatAmount || 0);
+      }
 
       let saleNumber = base.sale_number ? String(base.sale_number).trim() : '';
       if (!saleNumber) {
@@ -229,7 +237,7 @@ router.post('/import', authenticateToken, requireTenant, getTenantDb, closeTenan
           parseFloat(discountAmount) || 0,
           base.discount_type || 'fixed',
           parseFloat(vatPercentage) || 0,
-          parseFloat(vatAmount) || 0,
+          parseFloat(vatAmount || 0) || 0,
           parseFloat(total),
           paymentMethod,
           parseFloat(paymentAmount),
