@@ -116,7 +116,7 @@ export default function SalesHistory() {
     String(value || '')
       .trim()
       .toLowerCase()
-      .replace(/[\s_-]+/g, '');
+      .replace(/[^a-z0-9]+/g, '');
 
   const headerMap = {
     salenumber: 'sale_number',
