@@ -138,23 +138,25 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
                 </div>
               )}
               <h1 className="receipt-title">{companyName}</h1>
-              {settings.trn && (
-                <p className="receipt-trn">TRN: {settings.trn}</p>
-              )}
               {settings.restaurant_address && (
                 <p className="receipt-address">{settings.restaurant_address}</p>
               )}
-                        {(settings.restaurant_phone || settings.restaurant_email) && (
-                          <div className="receipt-contact" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                            {settings.restaurant_phone && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <FaWhatsapp />
-                                <span>{settings.restaurant_phone}</span>
-                              </div>
-                            )}
-                            {settings.restaurant_email && <span>{settings.restaurant_email}</span>}
-                          </div>
-                        )}              <div className="receipt-divider"></div>
+              {(settings.restaurant_phone || settings.restaurant_email) && (
+                <div className="receipt-contact" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  {settings.restaurant_phone && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <FaWhatsapp />
+                      <span>{settings.restaurant_phone}</span>
+                    </div>
+                  )}
+                  {settings.restaurant_email && <span>{settings.restaurant_email}</span>}
+                </div>
+              )}
+              <p className="receipt-tax">Tax Invoice</p>
+              {settings.trn && (
+                <p className="receipt-trn">TRN: {settings.trn}</p>
+              )}
+              <div className="receipt-divider"></div>
             </div>
 
             {/* Bill Information */}

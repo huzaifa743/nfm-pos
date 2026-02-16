@@ -147,6 +147,16 @@ export const getReceiptPrintStyles = (paperSize = '80mm') => {
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
+
+    .receipt-tax {
+      font-size: 12px;
+      font-weight: 800;
+      margin: 4px 0;
+      text-transform: uppercase;
+      color: #000 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
     
     .receipt-divider {
       border-top: 1.5px dashed #333;
