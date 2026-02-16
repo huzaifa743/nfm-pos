@@ -131,6 +131,7 @@ export default function SalesHistory() {
   const headerMap = {
     salenumber: 'sale_number',
     saledate: 'sale_date',
+    saledateddmmyy: 'sale_date',
     date: 'sale_date',
     customer: 'customer_name',
     paymentmethod: 'payment_method',
