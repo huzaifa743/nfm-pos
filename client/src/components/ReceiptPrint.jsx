@@ -27,6 +27,19 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
     const displayHours = date.getHours() % 12 || 12;
     return `${displayHours}:${minutes} ${ampm}`;
   };
+
+  const formatBillDateTime = (dateValue) => {
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return '';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = String(date.getFullYear());
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const ampm = date.getHours() >= 12 ? 'PM' : 'AM';
+    const displayHours = date.getHours() % 12 || 12;
+    return `${day}/${month}/${year} ${displayHours}:${minutes} ${ampm}`;
+  };
   
   const formatBillNumber = (saleNumber) => {
     // Format: /2/admin/BILL followed by a shorter, more readable version
@@ -167,15 +180,7 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
             {/* Bill Date */}
             <div className="receipt-bill-date-wrapper">
               <span className="receipt-bill-date">
-                {new Date().toLocaleString(navigator.language || 'en-US', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                  hour12: true
-                })}
+                {formatBillDateTime(new Date())}
               </span>
             </div>
 
