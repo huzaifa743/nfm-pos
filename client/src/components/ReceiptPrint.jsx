@@ -42,33 +42,20 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
   };
   
   const formatBillNumber = (saleNumber) => {
-    // Format: /2/admin/BILL followed by a shorter, more readable version
-    // For 80mm paper, use shorter format to prevent line wrapping issues
     if (!saleNumber) return '';
-    // If sale number contains SALE-, extract just the numeric part
     let shortNumber;
     if (saleNumber.includes('SALE-')) {
       const parts = saleNumber.split('-');
-      // Extract timestamp part (second element) and take last 10 digits
       if (parts.length >= 2 && parts[1]) {
-        // Get last 10 digits of timestamp for readability
         const timestamp = parts[1];
         shortNumber = timestamp.length > 10 ? timestamp.slice(-10) : timestamp;
       } else {
-        // Fallback: use first 12 characters without the "SALE-" prefix
         shortNumber = saleNumber.replace('SALE-', '').substring(0, 12);
       }
     } else {
-      // For other formats, limit to 14 characters total
       shortNumber = saleNumber.substring(0, 14);
     }
-    // Ensure total length including "/2/admin/BILL " fits on 80mm (max ~30 chars)
-    const prefix = '/2/admin/BILL ';
-    const maxNumberLength = 30 - prefix.length;
-    if (shortNumber.length > maxNumberLength) {
-      shortNumber = shortNumber.substring(0, maxNumberLength);
-    }
-    return `${prefix}${shortNumber}`;
+    return `Bill No: ${shortNumber}`;
   };
 
   const formatFullDateTime = (dateString) => {
