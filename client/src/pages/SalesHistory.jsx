@@ -24,6 +24,7 @@ export default function SalesHistory() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -109,6 +110,24 @@ export default function SalesHistory() {
     } catch (error) {
       console.error('Error deleting sale:', error);
       toast.error(error.response?.data?.error || 'Failed to delete sale');
+    }
+  };
+
+  const handleClearAllSales = async () => {
+    if (!window.confirm(t('salesHistory.clearAllConfirm'))) {
+      return;
+    }
+
+    setClearingAll(true);
+    try {
+      await api.delete('/sales');
+      toast.success(t('salesHistory.clearAllSuccess'));
+      fetchSales();
+    } catch (error) {
+      console.error('Error clearing sales history:', error);
+      toast.error(error.response?.data?.error || t('salesHistory.clearAllFailed'));
+    } finally {
+      setClearingAll(false);
     }
   };
 
@@ -287,6 +306,16 @@ export default function SalesHistory() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-800">{t('salesHistory.title')}</h1>
         <div className="flex flex-wrap gap-3">
+          {user?.role === 'admin' && (
+            <button
+              onClick={handleClearAllSales}
+              disabled={clearingAll}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-5 h-5" />
+              {t('salesHistory.clearAll')}
+            </button>
+          )}
           <button
             onClick={handleExportExcel}
             className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2"

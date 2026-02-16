@@ -270,6 +270,18 @@ router.post('/import', authenticateToken, requireTenant, getTenantDb, closeTenan
   }
 });
 
+// Delete all sales (admin only)
+router.delete('/', authenticateToken, requireRole('admin'), requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
+  try {
+    await req.db.run('DELETE FROM sale_items');
+    const result = await req.db.run('DELETE FROM sales');
+    res.json({ message: 'Sales history cleared', deletedSales: result.changes || 0 });
+  } catch (error) {
+    console.error('Delete all sales error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Get single sale with items
 router.get('/:id', authenticateToken, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
