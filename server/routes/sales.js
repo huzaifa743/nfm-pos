@@ -26,6 +26,11 @@ function normalizeDateValue(value) {
   const trimmed = String(value).trim();
   if (!trimmed) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return `${trimmed} 12:00:00`;
+  const match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (match) {
+    const [, day, month, year] = match;
+    return `${year}-${month}-${day} 12:00:00`;
+  }
   return trimmed;
 }
 
