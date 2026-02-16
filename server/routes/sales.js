@@ -26,10 +26,12 @@ function normalizeDateValue(value) {
   const trimmed = String(value).trim();
   if (!trimmed) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return `${trimmed} 12:00:00`;
-  const match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{2}|\d{4})(?:\s+(\d{2}:\d{2}(?::\d{2})?))?$/);
   if (match) {
-    const [, day, month, year] = match;
-    return `${year}-${month}-${day} 12:00:00`;
+    const [, day, month, yearRaw, timeRaw] = match;
+    const year = yearRaw.length === 2 ? `20${yearRaw}` : yearRaw;
+    const timeValue = timeRaw || '12:00:00';
+    return `${year}-${month}-${day} ${timeValue}`;
   }
   return trimmed;
 }

@@ -112,6 +112,16 @@ export default function SalesHistory() {
     }
   };
 
+  const formatExportDate = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2);
+    return `${day}/${month}/${year}`;
+  };
+
   const normalizeHeader = (value) =>
     String(value || '')
       .trim()
@@ -147,7 +157,7 @@ export default function SalesHistory() {
   const handleDownloadTemplate = () => {
     const headers = [[
       'Sale Number',
-      'Sale Date (YYYY-MM-DD)',
+      'Sale Date (DD/MM/YY)',
       'Customer',
       'Payment Method',
       'Subtotal',
@@ -177,7 +187,7 @@ export default function SalesHistory() {
 
     const rows = sales.map((sale) => [
       sale.sale_number || '',
-      sale.created_at || '',
+      formatExportDate(sale.created_at),
       sale.customer_name || 'Walk-in',
       sale.payment_method || '',
       sale.subtotal != null ? Number(sale.subtotal) : '',
@@ -208,7 +218,7 @@ export default function SalesHistory() {
 
     const rows = sales.map((sale) => [
       sale.sale_number || '',
-      formatDate(sale.created_at),
+      formatExportDate(sale.created_at),
       sale.customer_name || 'Walk-in',
       sale.payment_method || '',
       sale.total != null ? formatCurrency(sale.total) : '',
