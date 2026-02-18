@@ -12,7 +12,7 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
     address: settings?.restaurant_address || '123 Main St, Anytown, USA',
     phone: settings?.restaurant_phone || '+1 (555) 123-4567',
     email: settings?.restaurant_email || 'contact@nfmpos.com',
-    trn: settings?.trn || 'Not Available'
+    trn: settings?.trn
   };
 
   const customer = {
