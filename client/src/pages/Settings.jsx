@@ -100,9 +100,7 @@ export default function Settings() {
         }
       });
 
-      const response = await api.put('/settings', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const response = await api.put('/settings', formData);
 
       setSettings(response.data);
       // Update the context with new settings - this will trigger re-renders

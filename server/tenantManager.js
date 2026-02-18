@@ -155,6 +155,7 @@ function createTenantDatabase(tenantCode) {
           image TEXT,
           description TEXT,
           stock_quantity INTEGER DEFAULT 0,
+          stock_tracking_enabled INTEGER DEFAULT 0,
           expiry_date TEXT,
           vat_percentage REAL DEFAULT 0,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -304,7 +305,7 @@ function migrateTenantDatabase(db) {
   return new Promise((resolve, reject) => {
     db.serialize(() => {
       let migrationsCompleted = 0;
-      const totalMigrations = 2;
+      const totalMigrations = 3;
 
       const checkMigrationComplete = () => {
         migrationsCompleted++;
@@ -388,6 +389,17 @@ function migrateTenantDatabase(db) {
           // Table exists, no migration needed
           checkMigrationComplete();
         }
+      });
+
+      // Add stock_tracking_enabled to products table if missing
+      db.run('ALTER TABLE products ADD COLUMN stock_tracking_enabled INTEGER DEFAULT 0', (err) => {
+        if (err && !/duplicate column name/i.test(err.message)) {
+          console.error('Error adding stock_tracking_enabled to products:', err);
+          reject(err);
+          return;
+        }
+        console.log('✅ Migration complete: stock_tracking_enabled column in products table');
+        checkMigrationComplete();
       });
     });
   });
