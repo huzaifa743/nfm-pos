@@ -5,7 +5,6 @@ import { useSettings } from '../contexts/SettingsContext';
 
 const A4Receipt = ({ sale, onClose, onPrint }) => {
   const { settings, formatCurrency } = useSettings();
-  const previewScale = 0.67;
 
   const company = {
     name: settings?.restaurant_name || 'NFM POS',
@@ -34,8 +33,8 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
   const previewDimensions = {
-    width: `calc(210mm * ${previewScale})`,
-    minHeight: `calc(297mm * ${previewScale})`,
+    width: '210mm',
+    minHeight: '297mm',
   };
 
   return (
@@ -46,12 +45,22 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
         }
 
         @media print {
+          body * {
+            visibility: hidden !important;
+          }
+
+          .receipt-modal-a4,
+          .receipt-modal-a4 * {
+            visibility: visible !important;
+          }
+
           .receipt-modal-a4 {
-            position: static !important;
-            inset: auto !important;
+            position: fixed !important;
+            inset: 0 !important;
             background: none !important;
             display: block !important;
             padding: 0 !important;
+            margin: 0 !important;
           }
 
           .receipt-actions {
@@ -66,11 +75,13 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
             border-radius: 0 !important;
             padding: 0 !important;
             box-shadow: none !important;
+            margin: 0 !important;
           }
 
           .a4-scale-wrapper {
             width: 210mm !important;
             min-height: 297mm !important;
+            margin: 0 auto !important;
           }
 
           .a4-sheet {
@@ -80,7 +91,7 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
             border: 0 !important;
             border-radius: 0 !important;
             box-shadow: none !important;
-            margin: 0 !important;
+            margin: 0 auto !important;
           }
 
           @page {
@@ -122,8 +133,6 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
               style={{
                 width: '210mm',
                 minHeight: '297mm',
-                transform: `scale(${previewScale})`,
-                transformOrigin: 'top left',
               }}
             >
               <div className="h-full p-8">
