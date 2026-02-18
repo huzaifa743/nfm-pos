@@ -24,6 +24,7 @@ export const SettingsProvider = ({ children }) => {
     vat_percentage: '0',
     receipt_auto_print: 'false',
     receipt_paper_size: '80mm',
+    invoice_type: 'thermal',
   });
   const [loading, setLoading] = useState(true);
   const hasFetchedRef = useRef(false);

@@ -279,7 +279,8 @@ function createTenantDatabase(tenantCode) {
               ['restaurant_logo', ''],
               ['vat_percentage', '0'],
               ['currency', 'USD'],
-              ['language', 'en']
+              ['language', 'en'],
+              ['invoice_type', 'thermal']
             ];
 
             let completed = 0;

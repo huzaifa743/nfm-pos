@@ -25,6 +25,7 @@ import {
 import CheckoutModal from '../components/CheckoutModal';
 import CustomerModal from '../components/CustomerModal';
 import ReceiptPrint from '../components/ReceiptPrint';
+import A4Receipt from '../components/A4Receipt';
 import DiscountModal from '../components/DiscountModal';
 import VATModal from '../components/VATModal';
 import ProductModal from '../components/ProductModal';
@@ -473,7 +474,11 @@ export default function Billing() {
       // Auto print if enabled
       if (settings.receipt_auto_print === 'true') {
         setTimeout(() => {
-          handlePrintReceipt();
+          if (settings.invoice_type === 'A4') {
+            handlePrintA4Receipt();
+          } else {
+            handlePrintThermalReceipt();
+          }
         }, 500);
       }
     } catch (error) {
@@ -579,7 +584,11 @@ export default function Billing() {
       // Auto print if enabled
       if (settings.receipt_auto_print === 'true') {
         setTimeout(() => {
-          handlePrintReceipt();
+          if (settings.invoice_type === 'A4') {
+            handlePrintA4Receipt();
+          } else {
+            handlePrintThermalReceipt();
+          }
         }, 500);
       }
     } catch (error) {
@@ -615,7 +624,7 @@ export default function Billing() {
     };
   };
 
-  const handlePrintReceipt = () => {
+  const handlePrintThermalReceipt = () => {
     const saleToPrint = completedSale || generateCartPreview();
     if (!saleToPrint) return; 
     
@@ -660,6 +669,10 @@ export default function Billing() {
       }, 100);
     }, 250);
   };
+
+  const handlePrintA4Receipt = () => {
+    window.print();
+  }
 
   const { subtotal, discount, vat, total, saleVatAmount } = calculateTotals();
 
@@ -1224,14 +1237,22 @@ export default function Billing() {
       )}
 
       {showReceipt && (completedSale || cart.length > 0) && (
-        <ReceiptPrint
-          sale={completedSale || generateCartPreview()}
-          onClose={() => {
-            setShowReceipt(false);
-            // Don't clear completedSale so receipt can be viewed again
-          }}
-          onPrint={handlePrintReceipt}
-        />
+        settings.invoice_type === 'A4' ? (
+          <A4Receipt
+            sale={completedSale || generateCartPreview()}
+            onClose={() => setShowReceipt(false)}
+            onPrint={handlePrintA4Receipt}
+          />
+        ) : (
+          <ReceiptPrint
+            sale={completedSale || generateCartPreview()}
+            onClose={() => {
+              setShowReceipt(false);
+              // Don't clear completedSale so receipt can be viewed again
+            }}
+            onPrint={handlePrintThermalReceipt}
+          />
+        )
       )}
 
       {showDiscountModal && (

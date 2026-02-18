@@ -1,3 +1,3 @@
 git add .
-git commit -m "Updated file size to 15MB"
+git commit -m "Added A4 Receipt"
 git push origin main

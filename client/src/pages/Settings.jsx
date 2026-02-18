@@ -25,6 +25,7 @@ export default function Settings() {
     vat_percentage: '0',
     receipt_auto_print: 'false',
     receipt_paper_size: '80mm',
+    invoice_type: 'thermal',
   });
 
   const [logoPreview, setLogoPreview] = useState(null);
@@ -50,6 +51,8 @@ export default function Settings() {
       setSettings(prev => ({ ...prev, ...response.data }));
       if (response.data.restaurant_logo) {
         setLogoPreview(getImageURL(response.data.restaurant_logo));
+      } else {
+        setLogoPreview(null);
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -100,7 +103,11 @@ export default function Settings() {
         }
       });
 
-      const response = await api.put('/settings', formData);
+      const response = await api.put('/settings', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
       setSettings(response.data);
       // Update the context with new settings - this will trigger re-renders
@@ -108,6 +115,8 @@ export default function Settings() {
       
       if (response.data.restaurant_logo) {
         setLogoPreview(getImageURL(response.data.restaurant_logo));
+      } else {
+        setLogoPreview(null);
       }
       
       // Update language if changed
@@ -296,6 +305,30 @@ export default function Settings() {
               <p className="text-xs text-gray-500 mt-1 ml-8">
                 {t('settings.autoPrintReceiptDesc')}
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Invoice Settings */}
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <Receipt className="w-6 h-6 text-primary-600" />
+            <h2 className="text-xl font-semibold text-gray-800">Invoice Settings</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Invoice Type
+              </label>
+              <select
+                value={settings.invoice_type || 'thermal'}
+                onChange={(e) => handleInputChange('invoice_type', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="thermal">Thermal</option>
+                <option value="A4">A4</option>
+              </select>
             </div>
           </div>
         </div>

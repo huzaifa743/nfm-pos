@@ -27,6 +27,17 @@ function getUploadsBasePath() {
   }
 }
 
+function resolveUploadsFilePath(relativeUploadsPath) {
+  if (!relativeUploadsPath) return '';
+  const normalized = relativeUploadsPath
+    .replace(/^\/+/, '')
+    .replace(/\\/g, '/');
+  const pathWithoutUploadsPrefix = normalized.startsWith('uploads/')
+    ? normalized.slice('uploads/'.length)
+    : normalized;
+  return path.join(getUploadsBasePath(), pathWithoutUploadsPrefix);
+}
+
 // Configure multer for logo upload
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -104,18 +115,11 @@ router.get('/', async (req, res) => {
         settings.forEach(setting => {
           settingsObj[setting.key] = setting.value;
         });
-        
-        // Verify logo file exists, if not, clear the logo path
+
         if (settingsObj.restaurant_logo) {
-          const uploadsBasePath = getUploadsBasePath();
-          // Remove leading slash from logo path for path.join
-          const normalizedLogoPath = settingsObj.restaurant_logo.startsWith('/') 
-            ? settingsObj.restaurant_logo.substring(1) 
-            : settingsObj.restaurant_logo;
-          const logoFilePath = path.join(uploadsBasePath, normalizedLogoPath.replace('uploads/', ''));
+          const logoFilePath = resolveUploadsFilePath(settingsObj.restaurant_logo);
           if (!fs.existsSync(logoFilePath)) {
-            console.warn('Logo file not found, clearing logo path:', settingsObj.restaurant_logo, 'Expected at:', logoFilePath);
-            settingsObj.restaurant_logo = '';
+            console.warn('Logo file not found on disk, returning stored path as-is:', settingsObj.restaurant_logo, 'Checked:', logoFilePath);
           }
         }
         
@@ -131,7 +135,8 @@ router.get('/', async (req, res) => {
           language: 'en',
           vat_percentage: '0',
           receipt_auto_print: 'false',
-          receipt_paper_size: '80mm'
+          receipt_paper_size: '80mm',
+          invoice_type: 'thermal'
         };
         
         return res.json({ ...defaultSettings, ...settingsObj });
@@ -149,7 +154,8 @@ router.get('/', async (req, res) => {
           language: 'en',
           vat_percentage: '0',
           receipt_auto_print: 'false',
-          receipt_paper_size: '80mm'
+          receipt_paper_size: '80mm',
+          invoice_type: 'thermal'
         });
       }
     }
@@ -166,7 +172,8 @@ router.get('/', async (req, res) => {
       language: 'en',
       vat_percentage: '0',
       receipt_auto_print: 'false',
-      receipt_paper_size: '80mm'
+      receipt_paper_size: '80mm',
+      invoice_type: 'thermal'
     });
   } catch (error) {
     console.error('Error fetching settings:', error);
@@ -194,10 +201,7 @@ router.put('/', authenticateToken, requireRole('admin'), preventDemoModification
       // Delete old logo if exists
       const oldLogo = await req.db.get('SELECT value FROM settings WHERE key = ?', ['restaurant_logo']);
       if (oldLogo && oldLogo.value) {
-        // Normalize the path - remove leading slash if present for path.join
-        const normalizedOldPath = oldLogo.value.startsWith('/') ? oldLogo.value.substring(1) : oldLogo.value;
-        const uploadsBasePath = getUploadsBasePath();
-        const oldLogoPath = path.join(uploadsBasePath, normalizedOldPath.replace('uploads/', ''));
+        const oldLogoPath = resolveUploadsFilePath(oldLogo.value);
         if (fs.existsSync(oldLogoPath)) {
           try {
             fs.unlinkSync(oldLogoPath);
@@ -231,7 +235,7 @@ router.put('/', authenticateToken, requireRole('admin'), preventDemoModification
 
     // Update other settings
     for (const [key, value] of Object.entries(settings)) {
-      if (key !== 'logo') {
+      if (key !== 'logo' && key !== 'restaurant_logo') {
         await req.db.run(
           'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
           [key, value || '']
