@@ -26,6 +26,9 @@ export default function Settings() {
     receipt_auto_print: 'false',
     receipt_paper_size: '80mm',
     invoice_type: 'thermal',
+    terms_conditions: '',
+    bank_details: '',
+    account_holder: '',
   });
 
   const [logoPreview, setLogoPreview] = useState(null);
@@ -262,6 +265,42 @@ export default function Settings() {
                 value={settings.trn || ''}
                 onChange={(e) => handleInputChange('trn', e.target.value)}
                 placeholder="Enter TRN"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Terms and Conditions
+              </label>
+              <textarea
+                value={settings.terms_conditions || ''}
+                onChange={(e) => handleInputChange('terms_conditions', e.target.value)}
+                rows="3"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Bank Details
+              </label>
+              <textarea
+                value={settings.bank_details || ''}
+                onChange={(e) => handleInputChange('bank_details', e.target.value)}
+                rows="3"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Account Holder
+              </label>
+              <input
+                type="text"
+                value={settings.account_holder || ''}
+                onChange={(e) => handleInputChange('account_holder', e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               />
             </div>

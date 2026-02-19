@@ -32,8 +32,30 @@ export default function ProductModal({
     has_weight: false,
     weight_unit: 'gram',
     vat_percentage: '',
+    product_base_unit: '',
+    product_purchase_unit: '',
+    product_sale_unit: '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [unitConversions, setUnitConversions] = useState([]);
+  const [baseUnits, setBaseUnits] = useState([]);
+
+  useEffect(() => {
+    const fetchUnitConversions = async () => {
+      try {
+        const response = await api.get('/unit-conversions');
+        setUnitConversions(response.data);
+        // Extract unique base units
+        const uniqueBaseUnits = [...new Set(response.data.map(c => c.base_unit))];
+        setBaseUnits(uniqueBaseUnits.sort());
+      } catch (error) {
+        console.error('Error fetching unit conversions:', error);
+      }
+    };
+    if (open) {
+      fetchUnitConversions();
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,6 +75,9 @@ export default function ProductModal({
         has_weight: editingProduct.has_weight === 1 || editingProduct.has_weight === true,
         weight_unit: editingProduct.weight_unit === 'kg' ? 'kg' : 'gram',
         vat_percentage: editingProduct.vat_percentage != null && editingProduct.vat_percentage > 0 ? String(editingProduct.vat_percentage) : '',
+        product_base_unit: editingProduct.product_base_unit || '',
+        product_purchase_unit: editingProduct.product_purchase_unit || '',
+        product_sale_unit: editingProduct.product_sale_unit || '',
       });
     } else {
       setForm({
@@ -70,6 +95,9 @@ export default function ProductModal({
         has_weight: false,
         weight_unit: 'gram',
         vat_percentage: '',
+        product_base_unit: '',
+        product_purchase_unit: '',
+        product_sale_unit: '',
       });
     }
   }, [open, editingProduct, initialCategoryId]);
@@ -120,6 +148,9 @@ export default function ProductModal({
       formData.append('has_weight', form.has_weight ? 'true' : 'false');
       formData.append('weight_unit', form.has_weight ? form.weight_unit : '');
       formData.append('vat_percentage', form.vat_percentage && !isNaN(parseFloat(form.vat_percentage)) ? String(parseFloat(form.vat_percentage)) : '0');
+      formData.append('product_base_unit', form.product_base_unit || '');
+      formData.append('product_purchase_unit', form.product_purchase_unit || '');
+      formData.append('product_sale_unit', form.product_sale_unit || '');
 
       let product;
       if (editingProduct) {
@@ -152,6 +183,9 @@ export default function ProductModal({
         has_weight: false,
         weight_unit: 'gram',
         vat_percentage: '',
+        product_base_unit: '',
+        product_purchase_unit: '',
+        product_sale_unit: '',
       });
     } catch (err) {
       console.error('Product save error:', err);
@@ -178,7 +212,20 @@ export default function ProductModal({
       has_weight: false,
       weight_unit: 'gram',
       vat_percentage: '',
+      product_base_unit: '',
+      product_purchase_unit: '',
+      product_sale_unit: '',
     });
+  };
+
+  const getAvailableUnits = (baseUnit) => {
+    if (!baseUnit) return [];
+    const units = [baseUnit]; // Always include base unit
+    // Add conversion names that use this base unit
+    unitConversions
+      .filter(c => c.base_unit === baseUnit)
+      .forEach(c => units.push(c.name));
+    return [...new Set(units)].sort();
   };
 
   if (!open) return null;
@@ -426,6 +473,62 @@ export default function ProductModal({
             </div>
           </div>
 
+          {/* Unit Conversion Fields */}
+          <div className="grid grid-cols-3 gap-4 border-t pt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Product Base Unit
+              </label>
+              <select
+                value={form.product_base_unit || ''}
+                onChange={(e) => handleChange('product_base_unit', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">Select Base Unit</option>
+                {baseUnits.map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Purchase Unit
+              </label>
+              <select
+                value={form.product_purchase_unit || ''}
+                onChange={(e) => handleChange('product_purchase_unit', e.target.value)}
+                disabled={!form.product_base_unit}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option value="">Select Purchase Unit</option>
+                {form.product_base_unit && getAvailableUnits(form.product_base_unit).map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sale Unit
+              </label>
+              <select
+                value={form.product_sale_unit || ''}
+                onChange={(e) => handleChange('product_sale_unit', e.target.value)}
+                disabled={!form.product_base_unit}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option value="">Select Sale Unit</option>
+                {form.product_base_unit && getAvailableUnits(form.product_base_unit).map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
           <div className="flex gap-3">
             <button

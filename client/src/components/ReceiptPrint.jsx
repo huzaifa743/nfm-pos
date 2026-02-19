@@ -186,14 +186,42 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
                 const vatPct = item.vat_percentage ?? 0;
                 const vatAmt = item.vat_amount ?? 0;
                 const hasVat = vatPct > 0 && vatAmt > 0;
+                
+                // Check if unit conversion info exists in separate fields
+                const hasUnitConversionFields = item.selected_unit && item.display_quantity && item.product_base_unit;
+                
+                // Extract base product name and unit conversion info
+                let baseProductName = item.product_name;
+                let unitConversionText = null;
+                
+                if (hasUnitConversionFields) {
+                  // Use separate fields if available
+                  baseProductName = item.product_name.split(' (')[0]; // Remove any old format
+                  const displayQty = parseFloat(item.display_quantity).toFixed(4).replace(/\.?0+$/, '');
+                  const baseQty = parseFloat(item.quantity).toFixed(4).replace(/\.?0+$/, '');
+                  unitConversionText = `${displayQty} ${item.selected_unit} = ${baseQty} ${item.product_base_unit}`;
+                } else if (item.product_name.includes(' (')) {
+                  // Fallback: extract from product_name if fields not available (old sales)
+                  const parts = item.product_name.split(' (');
+                  baseProductName = parts[0];
+                  unitConversionText = parts[1] ? parts[1].replace(')', '') : null;
+                }
+                
                 return (
                   <div key={index}>
                     <div className="receipt-item-row">
                       <div className="item-col item-name">
-                        <span className="item-name-text">{item.product_name}</span>
+                        <span className="item-name-text">{baseProductName}</span>
+                        {unitConversionText && (
+                          <div className="text-xs text-gray-600 mt-0.5">
+                            {unitConversionText}
+                          </div>
+                        )}
                       </div>
                       <div className="item-col item-rate">{formatPrice(item.unit_price)}</div>
-                      <div className="item-col item-qty">{item.quantity}</div>
+                      <div className="item-col item-qty">
+                        {hasUnitConversionFields ? `${parseFloat(item.display_quantity).toFixed(4).replace(/\.?0+$/, '')} ${item.selected_unit}` : item.quantity}
+                      </div>
                       <div className="item-col item-amount">{formatPrice(item.total_price)}</div>
                     </div>
 

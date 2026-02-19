@@ -6,6 +6,7 @@ const { getTenantDb, closeTenantDb, requireTenant } = require('../middleware/ten
 const router = express.Router();
 const deliveryMigratedTenants = new Set();
 const saleItemsVatMigratedTenants = new Set();
+const saleItemsUnitConversionMigratedTenants = new Set();
 
 function normalizeNumber(value) {
   if (value == null || value === '') return null;
@@ -68,6 +69,26 @@ async function ensureSaleItemsVatColumns(db, tenantCode) {
     if (!err.message || !err.message.includes('duplicate column')) throw err;
   }
   saleItemsVatMigratedTenants.add(tenantCode);
+}
+
+async function ensureSaleItemsUnitConversionColumns(db, tenantCode) {
+  if (!tenantCode || saleItemsUnitConversionMigratedTenants.has(tenantCode)) return;
+  try {
+    await db.run('ALTER TABLE sale_items ADD COLUMN selected_unit TEXT');
+  } catch (err) {
+    if (!err.message || !err.message.includes('duplicate column')) throw err;
+  }
+  try {
+    await db.run('ALTER TABLE sale_items ADD COLUMN display_quantity REAL');
+  } catch (err) {
+    if (!err.message || !err.message.includes('duplicate column')) throw err;
+  }
+  try {
+    await db.run('ALTER TABLE sale_items ADD COLUMN product_base_unit TEXT');
+  } catch (err) {
+    if (!err.message || !err.message.includes('duplicate column')) throw err;
+  }
+  saleItemsUnitConversionMigratedTenants.add(tenantCode);
 }
 
 async function ensureDeliveryColumns(db, tenantCode) {
@@ -326,6 +347,7 @@ router.post('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, a
     if (tenantCode) {
       await ensureDeliveryColumns(req.db, tenantCode);
       await ensureSaleItemsVatColumns(req.db, tenantCode);
+      await ensureSaleItemsUnitConversionColumns(req.db, tenantCode);
     }
 
     const {
@@ -400,6 +422,25 @@ router.post('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, a
       insertValues
     );
 
+    const saleId = saleResult.id;
+
+    // If payment method is cash, add to cash transactions
+    if (payment_method === 'cash' && parseFloat(total) > 0) {
+      try {
+        const last = await req.db.get('SELECT balance_after FROM cash_transactions ORDER BY id DESC LIMIT 1');
+        const currentBalance = last ? parseFloat(last.balance_after) : 0;
+        const newBalance = currentBalance + parseFloat(total);
+        await req.db.run(
+          `INSERT INTO cash_transactions (type, amount, description, reference_type, reference_id, balance_after, created_by)
+           VALUES ('in', ?, ?, 'sale', ?, ?, ?)`,
+          [parseFloat(total), `Sale #${saleNumber}`, saleId, newBalance, req.user?.id]
+        );
+      } catch (cashErr) {
+        console.error('Error recording cash transaction for sale:', cashErr);
+        // Don't fail the sale if cash recording fails
+      }
+    }
+
     // Create sale items
     for (const item of items) {
       const quantity = parseFloat(item.quantity) || 0;
@@ -407,22 +448,28 @@ router.post('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, a
       const totalPrice = parseFloat(item.total_price) || 0;
       const vatPct = parseFloat(item.vat_percentage) || 0;
       const vatAmt = parseFloat(item.vat_amount) || 0;
+      const selectedUnit = item.selected_unit || null;
+      const displayQuantity = item.display_quantity ? parseFloat(item.display_quantity) : null;
+      const productBaseUnit = item.product_base_unit || null;
 
       if (!item.product_id || !item.product_name) {
         throw new Error('Invalid item: product_id and product_name are required');
       }
 
       await req.db.run(
-        'INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, total_price, vat_percentage, vat_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, total_price, vat_percentage, vat_amount, selected_unit, display_quantity, product_base_unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
-          saleResult.id,
+          saleId,
           item.product_id,
           item.product_name,
           quantity,
           unitPrice,
           totalPrice,
           vatPct,
-          vatAmt
+          vatAmt,
+          selectedUnit,
+          displayQuantity,
+          productBaseUnit
         ]
       );
 

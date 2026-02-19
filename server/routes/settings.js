@@ -136,7 +136,9 @@ router.get('/', async (req, res) => {
           vat_percentage: '0',
           receipt_auto_print: 'false',
           receipt_paper_size: '80mm',
-          invoice_type: 'thermal'
+          invoice_type: 'thermal',
+          terms_conditions: '',
+          bank_details: ''
         };
         
         return res.json({ ...defaultSettings, ...settingsObj });
@@ -155,7 +157,9 @@ router.get('/', async (req, res) => {
           vat_percentage: '0',
           receipt_auto_print: 'false',
           receipt_paper_size: '80mm',
-          invoice_type: 'thermal'
+          invoice_type: 'thermal',
+          terms_conditions: '',
+          bank_details: ''
         });
       }
     }
@@ -173,7 +177,9 @@ router.get('/', async (req, res) => {
       vat_percentage: '0',
       receipt_auto_print: 'false',
       receipt_paper_size: '80mm',
-      invoice_type: 'thermal'
+      invoice_type: 'thermal',
+      terms_conditions: '',
+      bank_details: ''
     });
   } catch (error) {
     console.error('Error fetching settings:', error);

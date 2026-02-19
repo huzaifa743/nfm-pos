@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../contexts/SettingsContext';
+import { useAuth } from '../contexts/AuthContext';
 import api from '../api/api';
 import toast from 'react-hot-toast';
 import { Plus, Search, Edit, Trash2, X, Folder, FileDown, FileUp, FileText } from 'lucide-react';
@@ -12,6 +13,7 @@ import ProductModal from '../components/ProductModal';
 export default function Inventory() {
   const { t } = useTranslation();
   const { formatCurrency } = useSettings();
+  const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -132,6 +134,12 @@ export default function Inventory() {
     weightunit: 'weight_unit',
     vat: 'vat_percentage',
     vatpercentage: 'vat_percentage',
+    baseunit: 'product_base_unit',
+    productbaseunit: 'product_base_unit',
+    purchaseunit: 'product_purchase_unit',
+    productpurchaseunit: 'product_purchase_unit',
+    saleunit: 'product_sale_unit',
+    productsaleunit: 'product_sale_unit',
   };
 
   const mapRowToPayload = (row) => {
@@ -160,6 +168,9 @@ export default function Inventory() {
       'Has Weight',
       'Weight Unit',
       'VAT %',
+      'Base Unit',
+      'Purchase Unit',
+      'Sale Unit',
     ]];
     const worksheet = XLSX.utils.aoa_to_sheet(headers);
     const workbook = XLSX.utils.book_new();
@@ -181,6 +192,9 @@ export default function Inventory() {
       'Has Weight',
       'Weight Unit',
       'VAT %',
+      'Base Unit',
+      'Purchase Unit',
+      'Sale Unit',
     ];
 
     const rows = products.map((product) => [
@@ -196,6 +210,9 @@ export default function Inventory() {
       product.has_weight === 1 || product.has_weight === true ? 'Yes' : 'No',
       product.has_weight === 1 || product.has_weight === true ? (product.weight_unit || '') : '',
       product.vat_percentage != null ? Number(product.vat_percentage) : 0,
+      product.product_base_unit || '',
+      product.product_purchase_unit || '',
+      product.product_sale_unit || '',
     ]);
 
     const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
@@ -409,6 +426,15 @@ export default function Inventory() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Weight Unit
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Base Unit
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Purchase Unit
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Sale Unit
+                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -500,6 +526,33 @@ export default function Inventory() {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.product_base_unit ? (
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                          {product.product_base_unit}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.product_purchase_unit ? (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+                          {product.product_purchase_unit}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.product_sale_unit ? (
+                        <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">
+                          {product.product_sale_unit}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
                         <button
@@ -508,12 +561,15 @@ export default function Inventory() {
                         >
                           <Edit className="w-5 h-5" />
                         </button>
-                        <button
-                          onClick={() => handleDelete(product.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
+                        {user?.role === 'admin' && (
+                          <button
+                            onClick={() => handleDelete(product.id)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

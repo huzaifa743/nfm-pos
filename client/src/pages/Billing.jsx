@@ -21,6 +21,7 @@ import {
   Eye,
   CreditCard,
   FileText,
+  
 } from 'lucide-react';
 import CheckoutModal from '../components/CheckoutModal';
 import CustomerModal from '../components/CustomerModal';
@@ -28,9 +29,11 @@ import ReceiptPrint from '../components/ReceiptPrint';
 import A4Receipt from '../components/A4Receipt';
 import DiscountModal from '../components/DiscountModal';
 import VATModal from '../components/VATModal';
+
 import ProductModal from '../components/ProductModal';
 import HoldSalesModal from '../components/HoldSalesModal';
 import SplitPaymentModal from '../components/SplitPaymentModal';
+import UnitSelectionModal from '../components/UnitSelectionModal';
 
 export default function Billing() {
   const { t } = useTranslation();
@@ -46,10 +49,12 @@ export default function Billing() {
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [showVatModal, setShowVatModal] = useState(false);
+  
   const [discountAmount, setDiscountAmount] = useState(0);
   const [discountType, setDiscountType] = useState('fixed');
   const [saleVatPercentage, setSaleVatPercentage] = useState(null);
   const [noVat, setNoVat] = useState(false);
+  
 
   const [showReceipt, setShowReceipt] = useState(false);
   const [completedSale, setCompletedSale] = useState(null);
@@ -57,6 +62,9 @@ export default function Billing() {
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showHoldSalesModal, setShowHoldSalesModal] = useState(false);
   const [showSplitPaymentModal, setShowSplitPaymentModal] = useState(false);
+  const [showUnitSelectionModal, setShowUnitSelectionModal] = useState(false);
+  const [productToAdd, setProductToAdd] = useState(null);
+  const [unitConversions, setUnitConversions] = useState([]);
   const [saleDate, setSaleDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   // Safety: whenever a sale is completed, make sure cart and related state are cleared
@@ -73,8 +81,20 @@ export default function Billing() {
   useEffect(() => {
     fetchProducts();
     fetchCategories();
+    fetchUnitConversions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory, searchTerm]);
+
+  const fetchUnitConversions = async () => {
+    try {
+      const response = await api.get('/unit-conversions');
+      setUnitConversions(response.data);
+    } catch (error) {
+      console.error('Error fetching unit conversions:', error);
+    }
+  };
+
+  
 
   useEffect(() => {
     if (saleVatPercentage === null && settings?.vat_percentage !== undefined) {
@@ -86,11 +106,23 @@ export default function Billing() {
   // Re-apply VAT when items are added/removed or when discount changes
   useEffect(() => {
     const newCart = cart.map((item) => {
-      const base = item.unit_price * item.quantity;
       const vatPct = item.vat_percentage || 0;
-      const itemVat = base * (vatPct / 100);
-      const newTotal = base + itemVat;
-      return { ...item, vat_amount: itemVat, total_price: newTotal };
+      let itemVat, newTotal;
+      
+      if (vatPct > 0 && item.base_unit_price !== undefined) {
+        // VAT-inclusive pricing: calculate from base price
+        const lineBase = item.base_unit_price * item.quantity;
+        const inclusiveTotal = item.unit_price * item.quantity;
+        itemVat = inclusiveTotal - lineBase;
+        newTotal = inclusiveTotal;
+      } else {
+        // No VAT or legacy item: calculate VAT on top
+        const base = (item.base_unit_price || item.unit_price) * item.quantity;
+        itemVat = base * (vatPct / 100);
+        newTotal = base + itemVat;
+      }
+      
+      return { ...item, vat_amount: itemVat, total_price: parseFloat(newTotal.toFixed(2)) };
     });
 
     if (JSON.stringify(newCart) !== JSON.stringify(cart)) {
@@ -118,21 +150,40 @@ export default function Billing() {
           const product = response.data.find((p) => p.id === cartItem.product_id);
           if (product) {
             const vatPct = parseFloat(product.vat_percentage) || 0;
-            const lineBase = cartItem.unit_price * cartItem.quantity;
-            const lineVat = lineBase * (vatPct / 100);
-            return {
-              ...cartItem,
-              stock_tracking_enabled: product.stock_tracking_enabled || 0,
-              stock_quantity:
-                product.stock_quantity !== null && product.stock_quantity !== undefined
-                  ? product.stock_quantity
-                  : null,
-              has_weight: product.has_weight === 1 || product.has_weight === true ? 1 : 0,
-              weight_unit: product.weight_unit || 'gram',
-              vat_percentage: vatPct,
-              vat_amount: lineVat,
-              total_price: lineBase + lineVat,
-            };
+            const basePrice = parseFloat(product.price); // Price in inventory is base price
+            
+            let baseUnitPrice, unitPrice, lineVat, lineTotal;
+            if (vatPct > 0) {
+              // Price in inventory is base price, calculate inclusive price for display
+              baseUnitPrice = basePrice;
+              unitPrice = basePrice * (1 + vatPct / 100); // Inclusive price = base * (1 + VAT%)
+              const lineBase = baseUnitPrice * cartItem.quantity;
+              const inclusiveTotal = unitPrice * cartItem.quantity;
+              lineVat = inclusiveTotal - lineBase;
+              lineTotal = inclusiveTotal;
+            } else {
+              // No VAT
+              baseUnitPrice = basePrice;
+              unitPrice = basePrice;
+              lineVat = 0;
+              lineTotal = basePrice * cartItem.quantity;
+            }
+            
+          return {
+            ...cartItem,
+            stock_tracking_enabled: product.stock_tracking_enabled || 0,
+            stock_quantity:
+              product.stock_quantity !== null && product.stock_quantity !== undefined
+                ? product.stock_quantity
+                : null,
+            has_weight: product.has_weight === 1 || product.has_weight === true ? 1 : 0,
+            weight_unit: product.weight_unit || 'gram',
+            unit_price: unitPrice,
+            base_unit_price: baseUnitPrice,
+            vat_percentage: vatPct,
+            vat_amount: lineVat,
+            total_price: parseFloat(lineTotal.toFixed(2)),
+          };
           }
           return cartItem;
         });
@@ -165,6 +216,14 @@ export default function Billing() {
       return;
     }
 
+    // If product has unit conversions, show unit selection modal
+    if (product.product_base_unit) {
+      setProductToAdd(product);
+      setShowUnitSelectionModal(true);
+      return;
+    }
+
+    // Otherwise, add directly to cart (legacy behavior)
     const existingItem = cart.find((item) => item.product_id === product.id);
 
     if (existingItem) {
@@ -185,11 +244,27 @@ export default function Billing() {
     } else {
       const hasWeight = product.has_weight === 1 || product.has_weight === true;
       const initialQty = hasWeight ? 0.1 : 1; // 100g default for weighted products
-      const unitPrice = parseFloat(product.price);
       const vatPct = parseFloat(product.vat_percentage) || 0;
-      const lineBase = unitPrice * initialQty;
-      const lineVat = lineBase * (vatPct / 100);
-      const lineTotal = lineBase + lineVat;
+      const basePrice = parseFloat(product.price); // Price in inventory is base price
+      
+      // If VAT is set, calculate inclusive price from base price
+      let unitPrice, baseUnitPrice, lineVat, lineTotal;
+      if (vatPct > 0) {
+        // Price in inventory is base price, calculate inclusive price for display
+        baseUnitPrice = basePrice;
+        unitPrice = basePrice * (1 + vatPct / 100); // Inclusive price = base * (1 + VAT%)
+        const lineBase = baseUnitPrice * initialQty;
+        const inclusiveTotal = unitPrice * initialQty;
+        lineVat = inclusiveTotal - lineBase; // VAT = inclusive total - base total
+        lineTotal = inclusiveTotal;
+      } else {
+        // No VAT: price is base price
+        baseUnitPrice = basePrice;
+        unitPrice = basePrice;
+        lineVat = 0;
+        lineTotal = basePrice * initialQty;
+      }
+      
       setCart([
         ...cart,
         {
@@ -198,7 +273,8 @@ export default function Billing() {
           product_name: product.name,
           product_image: product.image,
           category_name: product.category_name || '',
-          unit_price: unitPrice,
+          unit_price: unitPrice, // Inclusive price for display
+          base_unit_price: baseUnitPrice, // Base price for calculations
           quantity: initialQty,
           vat_percentage: vatPct,
           vat_amount: lineVat,
@@ -211,6 +287,68 @@ export default function Billing() {
       ]);
       if (!silent) toast.success('Product added to cart');
     }
+  };
+
+  const handleUnitSelectionConfirm = (productData) => {
+    // productData contains: selected_unit, quantity (base unit), display_quantity, unit_price, total_price, vat_amount
+    const existingItem = cart.find((item) => item.product_id === productData.id && item.selected_unit === productData.selected_unit);
+
+    if (existingItem) {
+      // Update existing item with same unit
+      const newQty = existingItem.quantity + productData.quantity;
+      const vatPct = parseFloat(productData.vat_percentage) || 0;
+      let lineVat, newTotal;
+      
+      if (vatPct > 0 && productData.base_unit_price !== undefined) {
+        const lineBase = productData.base_unit_price * newQty;
+        const inclusiveTotal = productData.unit_price * newQty;
+        lineVat = inclusiveTotal - lineBase;
+        newTotal = inclusiveTotal;
+      } else {
+        const basePrice = productData.base_unit_price || productData.unit_price;
+        const lineBase = basePrice * newQty;
+        lineVat = lineBase * (vatPct / 100);
+        newTotal = lineBase + lineVat;
+      }
+      
+      setCart(cart.map(item => 
+        item.id === existingItem.id 
+          ? {
+              ...item,
+              quantity: newQty,
+              display_quantity: productData.display_quantity + (item.display_quantity || item.quantity),
+              total_price: parseFloat(newTotal.toFixed(2)),
+              vat_amount: lineVat,
+            }
+          : item
+      ));
+    } else {
+      // Add new item
+      setCart([
+        ...cart,
+        {
+          id: Date.now(),
+          product_id: productData.id,
+          product_name: productData.name,
+          product_image: productData.image,
+          category_name: productData.category_name || '',
+          unit_price: productData.unit_price,
+          quantity: productData.quantity, // Base unit quantity
+          display_quantity: productData.display_quantity, // Display quantity in selected unit
+          selected_unit: productData.selected_unit,
+          vat_percentage: parseFloat(productData.vat_percentage) || 0,
+          vat_amount: productData.vat_amount,
+          total_price: productData.total_price,
+          stock_tracking_enabled: productData.stock_tracking_enabled || 0,
+          stock_quantity: productData.stock_quantity || null,
+          has_weight: productData.has_weight === 1 || productData.has_weight === true ? 1 : 0,
+          weight_unit: productData.weight_unit || 'gram',
+          product_base_unit: productData.product_base_unit,
+        },
+      ]);
+    }
+    toast.success('Product added to cart');
+    setProductToAdd(null);
   };
 
   const handleBarcodeScan = async (barcode) => {
@@ -262,6 +400,12 @@ export default function Billing() {
     setCart(
       cart.map((item) => {
         if (item.id === id) {
+          // For items with unit conversions, quantity is already in base unit
+          // For items without unit conversions, use quantity as-is
+          const baseQuantity = item.selected_unit && item.product_base_unit 
+            ? quantity // Already in base unit
+            : quantity;
+          
           // Check stock availability if stock tracking is enabled
           if (item.stock_tracking_enabled === 1 && item.stock_quantity !== null && item.stock_quantity !== undefined) {
             // Calculate total quantity of this product in cart (excluding current item)
@@ -269,18 +413,43 @@ export default function Billing() {
               .filter(cartItem => cartItem.product_id === item.product_id && cartItem.id !== id)
               .reduce((sum, cartItem) => sum + cartItem.quantity, 0);
             
-            const requestedTotalQty = otherItemsQty + quantity;
+            const requestedTotalQty = otherItemsQty + baseQuantity;
             if (requestedTotalQty > item.stock_quantity) {
-              toast.error(`Only ${item.stock_quantity} units available in stock`);
+              toast.error(`Only ${item.stock_quantity} ${item.product_base_unit || 'units'} available in stock`);
               return item; // Return unchanged item
             }
           }
           
+          // If item has unit conversion, update display_quantity as well
+          let updatedItem = { ...item };
+          if (item.selected_unit && item.product_base_unit) {
+            // Convert base quantity back to display unit
+            const newDisplayQty = convertFromBaseUnit(baseQuantity, item.selected_unit, item.product_base_unit);
+            updatedItem.display_quantity = parseFloat(newDisplayQty.toFixed(4));
+          }
+          
           const vatPct = item.vat_percentage || 0;
-          const lineBase = item.unit_price * quantity;
-          const lineVat = lineBase * (vatPct / 100);
-          const newTotal = parseFloat((lineBase + lineVat).toFixed(2));
-          return { ...item, quantity: parseFloat(quantity.toFixed(2)), vat_amount: lineVat, total_price: newTotal };
+          let lineVat, newTotal;
+          
+          if (vatPct > 0 && item.base_unit_price !== undefined) {
+            // VAT-inclusive pricing
+            const lineBase = item.base_unit_price * baseQuantity;
+            const inclusiveTotal = item.unit_price * baseQuantity;
+            lineVat = inclusiveTotal - lineBase;
+            newTotal = inclusiveTotal;
+          } else {
+            // No VAT or legacy item
+            const basePrice = item.base_unit_price || item.unit_price;
+            const lineBase = basePrice * baseQuantity;
+            lineVat = lineBase * (vatPct / 100);
+            newTotal = lineBase + lineVat;
+          }
+          
+          updatedItem.quantity = parseFloat(baseQuantity.toFixed(4));
+          updatedItem.vat_amount = lineVat;
+          updatedItem.total_price = parseFloat(newTotal.toFixed(2));
+          
+          return updatedItem;
         }
         return item;
       })
@@ -292,14 +461,136 @@ export default function Billing() {
       cart.map((item) => {
         if (item.id === id) {
           const vatPct = item.vat_percentage || 0;
-          const lineBase = price * item.quantity;
-          const lineVat = lineBase * (vatPct / 100);
-          const newTotal = parseFloat((lineBase + lineVat).toFixed(2));
-          return { ...item, unit_price: price, vat_amount: lineVat, total_price: newTotal };
+          let baseUnitPrice, lineVat, newTotal;
+          
+          if (vatPct > 0) {
+            // When user edits price in cart, treat it as inclusive price (what they want to see)
+            // Calculate base price from inclusive price
+            baseUnitPrice = price / (1 + vatPct / 100);
+            unitPrice = price; // Store the inclusive price user entered
+            const lineBase = baseUnitPrice * item.quantity;
+            const inclusiveTotal = unitPrice * item.quantity;
+            lineVat = inclusiveTotal - lineBase;
+            newTotal = inclusiveTotal;
+            return { ...item, unit_price: unitPrice, base_unit_price: baseUnitPrice, vat_amount: lineVat, total_price: parseFloat(newTotal.toFixed(2)) };
+          } else {
+            // No VAT
+            baseUnitPrice = price;
+            const lineBase = price * item.quantity;
+            lineVat = 0;
+            newTotal = lineBase;
+            return { ...item, unit_price: price, base_unit_price: baseUnitPrice, vat_amount: lineVat, total_price: parseFloat(newTotal.toFixed(2)) };
+          }
         }
         return item;
       })
     );
+  };
+
+  const convertToBaseUnit = (unit, qty, baseUnit) => {
+    if (!unit || !baseUnit) return qty;
+    if (unit === baseUnit) return qty;
+    const conversion = unitConversions.find(c => c.name === unit && c.base_unit === baseUnit);
+    if (!conversion) return qty;
+    if (conversion.operator === '*') {
+      return qty * conversion.operation_value;
+    } else {
+      return qty / conversion.operation_value;
+    }
+  };
+
+  const convertFromBaseUnit = (baseQty, targetUnit, baseUnit) => {
+    if (!targetUnit || !baseUnit) return baseQty;
+    if (targetUnit === baseUnit) return baseQty;
+    const conversion = unitConversions.find(c => c.name === targetUnit && c.base_unit === baseUnit);
+    if (!conversion) return baseQty;
+    if (conversion.operator === '*') {
+      return baseQty / conversion.operation_value;
+    } else {
+      return baseQty * conversion.operation_value;
+    }
+  };
+
+  const getAvailableUnits = (baseUnit) => {
+    if (!baseUnit) return [];
+    const units = [baseUnit];
+    unitConversions
+      .filter(c => c.base_unit === baseUnit)
+      .forEach(c => units.push(c.name));
+    return [...new Set(units)].sort();
+  };
+
+  const handleCartUnitChange = (itemId, newUnit) => {
+    const item = cart.find(i => i.id === itemId);
+    if (!item || !item.product_base_unit) return;
+
+    const baseQty = item.quantity; // Already in base unit
+    const newDisplayQty = convertFromBaseUnit(baseQty, newUnit, item.product_base_unit);
+    
+    // Recalculate price
+    const unitPrice = item.unit_price; // Inclusive price per base unit
+    const vatPct = item.vat_percentage || 0;
+    let lineVat, newTotal;
+    
+    if (vatPct > 0 && item.base_unit_price !== undefined) {
+      const lineBase = item.base_unit_price * baseQty;
+      const inclusiveTotal = unitPrice * baseQty;
+      lineVat = inclusiveTotal - lineBase;
+      newTotal = inclusiveTotal;
+    } else {
+      const basePrice = item.base_unit_price || unitPrice;
+      const lineBase = basePrice * baseQty;
+      lineVat = lineBase * (vatPct / 100);
+      newTotal = lineBase + lineVat;
+    }
+
+    setCart(cart.map(i => 
+      i.id === itemId 
+        ? {
+            ...i,
+            selected_unit: newUnit,
+            display_quantity: parseFloat(newDisplayQty.toFixed(4)),
+            total_price: parseFloat(newTotal.toFixed(2)),
+            vat_amount: lineVat,
+          }
+        : i
+    ));
+  };
+
+  const handleCartQuantityChange = (itemId, newDisplayQty) => {
+    const item = cart.find(i => i.id === itemId);
+    if (!item || !item.product_base_unit) return;
+
+    const baseQty = convertToBaseUnit(item.selected_unit || item.product_base_unit, newDisplayQty, item.product_base_unit);
+    
+    // Recalculate price
+    const unitPrice = item.unit_price; // Inclusive price per base unit
+    const vatPct = item.vat_percentage || 0;
+    let lineVat, newTotal;
+    
+    if (vatPct > 0 && item.base_unit_price !== undefined) {
+      const lineBase = item.base_unit_price * baseQty;
+      const inclusiveTotal = unitPrice * baseQty;
+      lineVat = inclusiveTotal - lineBase;
+      newTotal = inclusiveTotal;
+    } else {
+      const basePrice = item.base_unit_price || unitPrice;
+      const lineBase = basePrice * baseQty;
+      lineVat = lineBase * (vatPct / 100);
+      newTotal = lineBase + lineVat;
+    }
+
+    setCart(cart.map(i => 
+      i.id === itemId 
+        ? {
+            ...i,
+            quantity: baseQty,
+            display_quantity: parseFloat(newDisplayQty.toFixed(4)),
+            total_price: parseFloat(newTotal.toFixed(2)),
+            vat_amount: lineVat,
+          }
+        : i
+    ));
   };
 
   const removeFromCart = (id) => {
@@ -308,18 +599,32 @@ export default function Billing() {
   };
 
   const calculateTotals = () => {
-    const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
-    const itemVatTotal = cart.reduce((sum, item) => sum + (item.vat_amount || 0), 0);
+    // Calculate base subtotal (excluding VAT) and item-level VAT separately
+    const baseSubtotal = cart.reduce((sum, item) => {
+      const basePrice = item.base_unit_price !== undefined ? item.base_unit_price : item.unit_price;
+      return sum + basePrice * item.quantity;
+    }, 0);
+    const itemVat = cart.reduce((sum, item) => sum + (item.vat_amount || 0), 0);
+    
+    // For discount calculation, use base subtotal
     const discount =
       discountType === 'percentage'
-        ? (subtotal * discountAmount) / 100
+        ? (baseSubtotal * discountAmount) / 100
         : discountAmount;
-    const effectiveVatPct = noVat ? 0 : (parseFloat(saleVatPercentage) || 0);
-    const saleVatAmount = effectiveVatPct > 0 ? ((subtotal - discount) * effectiveVatPct) / 100 : 0;
-    const totalVat = itemVatTotal + saleVatAmount;
-    const total = subtotal - discount + saleVatAmount;
-
-    return { subtotal, discount, vat: totalVat, total, saleVatAmount };
+  
+    // Calculate sale-level VAT on base subtotal after discount
+    const saleVatRate = noVat ? 0 : (parseFloat(saleVatPercentage) || 0);
+    const saleVatAmount = ((baseSubtotal - discount) * saleVatRate) / 100;
+    
+    // Total VAT = item-level VAT + sale-level VAT
+    const totalVat = itemVat + saleVatAmount;
+    
+    // Subtotal shown in receipt should be base subtotal (before VAT)
+    const subtotal = baseSubtotal;
+    
+    const total = baseSubtotal - discount + totalVat;
+  
+    return { subtotal, discount, vat: totalVat, saleVatAmount, total };
   };
 
   const handleCheckout = () => {
@@ -367,12 +672,41 @@ export default function Billing() {
 
   const handleSelectHold = async (cartData, heldSale) => {
     try {
-      // Ensure cart items have vat_percentage and vat_amount (for legacy held sales)
-      const normalizedCart = cartData.map((item) => ({
-        ...item,
-        vat_percentage: item.vat_percentage ?? 0,
-        vat_amount: item.vat_amount ?? (item.unit_price * item.quantity * ((item.vat_percentage ?? 0) / 100)),
-      }));
+      // Ensure cart items have vat_percentage, vat_amount, and base_unit_price (for legacy held sales)
+      const normalizedCart = cartData.map((item) => {
+        const vatPct = item.vat_percentage ?? 0;
+        let baseUnitPrice, vatAmount;
+        
+        if (item.base_unit_price !== undefined) {
+          // Already has base_unit_price
+          baseUnitPrice = item.base_unit_price;
+          if (vatPct > 0) {
+            const lineBase = baseUnitPrice * item.quantity;
+            const inclusiveTotal = item.unit_price * item.quantity;
+            vatAmount = inclusiveTotal - lineBase;
+          } else {
+            vatAmount = item.vat_amount ?? 0;
+          }
+        } else if (vatPct > 0) {
+          // Legacy item with VAT: for held sales, unit_price is likely inclusive
+          // Calculate base from inclusive price
+          baseUnitPrice = item.unit_price / (1 + vatPct / 100);
+          const lineBase = baseUnitPrice * item.quantity;
+          const inclusiveTotal = item.unit_price * item.quantity;
+          vatAmount = inclusiveTotal - lineBase;
+        } else {
+          // No VAT: unit_price is base price
+          baseUnitPrice = item.unit_price;
+          vatAmount = item.vat_amount ?? 0;
+        }
+        
+        return {
+          ...item,
+          vat_percentage: vatPct,
+          base_unit_price: baseUnitPrice,
+          vat_amount: vatAmount ?? 0,
+        };
+      });
       setCart(normalizedCart);
       if (heldSale.customer_id) {
         setSelectedCustomer({ id: heldSale.customer_id, name: heldSale.customer_name });
@@ -435,16 +769,30 @@ export default function Billing() {
 
       const saleData = {
         customer_id: selectedCustomer?.id || null,
-        items: cart.map((item) => ({
-          product_id: item.product_id,
-          product_name: item.product_name,
-          quantity: parseFloat(item.quantity),
-          unit_price: parseFloat(item.unit_price),
-          total_price: parseFloat(item.total_price),
-          vat_percentage: parseFloat(item.vat_percentage) || 0,
-          vat_amount: parseFloat(item.vat_amount) || 0,
-        })),
-        subtotal: parseFloat(cart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0)),
+        items: cart.map((item) => {
+          // Format product name with unit information if unit conversion is used
+          let productName = item.product_name;
+          if (item.selected_unit && item.display_quantity !== undefined && item.product_base_unit) {
+            const displayQty = parseFloat(item.display_quantity).toFixed(4).replace(/\.?0+$/, '');
+            productName = `${item.product_name} (${displayQty} ${item.selected_unit} = ${parseFloat(item.quantity).toFixed(4).replace(/\.?0+$/, '')} ${item.product_base_unit})`;
+          }
+          
+          return {
+            product_id: item.product_id,
+            product_name: productName,
+            quantity: parseFloat(item.quantity), // Base unit quantity for stock and calculations
+            unit_price: parseFloat(item.unit_price),
+            total_price: parseFloat(item.total_price),
+            vat_percentage: parseFloat(item.vat_percentage) || 0,
+            vat_amount: parseFloat(item.vat_amount) || 0,
+            selected_unit: item.selected_unit || null,
+            display_quantity: item.display_quantity || null,
+          };
+        }),
+        subtotal: parseFloat(cart.reduce((sum, item) => {
+          const basePrice = item.base_unit_price !== undefined ? item.base_unit_price : item.unit_price;
+          return sum + basePrice * item.quantity;
+        }, 0)),
         discount_amount: parseFloat(discount),
         discount_type: discountType,
         vat_percentage: noVat ? 0 : (parseFloat(saleVatPercentage) || 0),
@@ -516,14 +864,23 @@ export default function Billing() {
           }
         }
         
+        // Format product name with unit information if unit conversion is used
+        let productName = item.product_name;
+        if (item.selected_unit && item.display_quantity !== undefined && item.product_base_unit) {
+          const displayQty = parseFloat(item.display_quantity).toFixed(4).replace(/\.?0+$/, '');
+          productName = `${item.product_name} (${displayQty} ${item.selected_unit} = ${parseFloat(item.quantity).toFixed(4).replace(/\.?0+$/, '')} ${item.product_base_unit})`;
+        }
+        
         return {
           product_id: item.product_id,
-          product_name: item.product_name,
-          quantity: parseFloat(item.quantity),
+          product_name: productName,
+          quantity: parseFloat(item.quantity), // Base unit quantity for stock and calculations
           unit_price: parseFloat(item.unit_price),
           total_price: parseFloat(item.total_price),
           vat_percentage: parseFloat(item.vat_percentage) || 0,
           vat_amount: parseFloat(item.vat_amount) || 0,
+          selected_unit: item.selected_unit || null,
+          display_quantity: item.display_quantity || null,
         };
       });
       
@@ -550,7 +907,10 @@ export default function Billing() {
       const saleData = {
         customer_id: selectedCustomer?.id || null,
         items: validatedItems,
-        subtotal: parseFloat(cart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0)),
+        subtotal: parseFloat(cart.reduce((sum, item) => {
+          const basePrice = item.base_unit_price !== undefined ? item.base_unit_price : item.unit_price;
+          return sum + basePrice * item.quantity;
+        }, 0)),
         discount_amount: parseFloat(discount),
         discount_type: discountType,
         vat_percentage: noVat ? 0 : (parseFloat(saleVatPercentage) || 0),
@@ -603,14 +963,23 @@ export default function Billing() {
     return {
       sale_number: 'PREVIEW',
       created_at: new Date().toISOString(),
-      items: cart.map((item) => ({
-        product_name: item.product_name,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.total_price,
-        vat_percentage: item.vat_percentage ?? 0,
-        vat_amount: item.vat_amount ?? 0,
-      })),
+      items: cart.map((item) => {
+        // Format product name with unit information if unit conversion is used
+        let productName = item.product_name;
+        if (item.selected_unit && item.display_quantity !== undefined && item.product_base_unit) {
+          const displayQty = parseFloat(item.display_quantity).toFixed(4).replace(/\.?0+$/, '');
+          productName = `${item.product_name} (${displayQty} ${item.selected_unit} = ${parseFloat(item.quantity).toFixed(4).replace(/\.?0+$/, '')} ${item.product_base_unit})`;
+        }
+        
+        return {
+          product_name: productName,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          vat_percentage: item.vat_percentage ?? 0,
+          vat_amount: item.vat_amount ?? 0,
+        };
+      }),
       subtotal,
       discount_amount: discount,
       discount_type: discountType,
@@ -671,7 +1040,237 @@ export default function Billing() {
   };
 
   const handlePrintA4Receipt = () => {
-    window.print();
+    const receiptContent = document.getElementById('a4-receipt-content');
+    if (!receiptContent) {
+      toast.error('Receipt content not found');
+      return;
+    }
+    
+    // Create a hidden iframe for printing (doesn't open new window)
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = '0';
+    printFrame.style.opacity = '0';
+    printFrame.style.pointerEvents = 'none';
+    document.body.appendChild(printFrame);
+    
+    const printDoc = printFrame.contentDocument || printFrame.contentWindow.document;
+    printDoc.open();
+    printDoc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Invoice</title>
+          <meta charset="utf-8">
+          <style>
+            @page {
+              size: A4;
+              margin: 0;
+            }
+            
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
+            
+            html {
+              width: 210mm;
+              height: 297mm;
+            }
+            
+            body {
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 210mm !important;
+              height: 297mm !important;
+              background: white !important;
+              font-family: Arial, sans-serif !important;
+              font-size: 8pt !important;
+              line-height: 1.2 !important;
+              color: black !important;
+              overflow: hidden !important;
+            }
+            
+            .print-content {
+              width: 210mm !important;
+              height: 297mm !important;
+              padding: 8mm !important;
+              margin: 0 !important;
+              background: white !important;
+              color: black !important;
+              box-sizing: border-box !important;
+              display: block !important;
+              overflow: hidden !important;
+            }
+            
+            .print-content * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
+            
+            .print-content header {
+              margin-bottom: 4px !important;
+              padding-bottom: 4px !important;
+            }
+            
+            .print-content section {
+              margin-bottom: 4px !important;
+              padding-bottom: 2px !important;
+            }
+            
+            .print-content h1 {
+              font-size: 12pt !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              line-height: 1.1 !important;
+            }
+            
+            .print-content h2 {
+              font-size: 14pt !important;
+              margin: 0 0 2px 0 !important;
+              padding: 0 !important;
+              line-height: 1.1 !important;
+            }
+            
+            .print-content p {
+              font-size: 7pt !important;
+              margin: 1px 0 !important;
+              padding: 0 !important;
+              line-height: 1.1 !important;
+            }
+            
+            .print-content table {
+              border-collapse: collapse !important;
+              width: 100% !important;
+              margin: 2px 0 !important;
+              font-size: 7pt !important;
+            }
+            
+            .print-content th {
+              background-color: #1e40af !important;
+              color: white !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              padding: 3px 4px !important;
+              font-weight: bold !important;
+              font-size: 7pt !important;
+              line-height: 1.1 !important;
+            }
+            
+            .print-content td {
+              padding: 2px 4px !important;
+              border-bottom: 1px solid #ddd !important;
+              font-size: 7pt !important;
+              line-height: 1.1 !important;
+            }
+            
+            .print-content footer {
+              margin-top: 4px !important;
+              padding-top: 4px !important;
+            }
+            
+            .print-content svg {
+              width: 60px !important;
+              height: 60px !important;
+            }
+            
+            .print-content img,
+            .print-content svg {
+              max-width: 100% !important;
+              height: auto !important;
+            }
+            
+            @media print {
+              @page {
+                size: A4;
+                margin: 0;
+              }
+              
+              html {
+                width: 210mm;
+                height: 297mm;
+              }
+              
+              html {
+                width: 210mm !important;
+                height: 297mm !important;
+              }
+              
+              body {
+                width: 210mm !important;
+                height: 297mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                font-size: 9pt !important;
+              }
+              
+              .print-content {
+                width: 210mm !important;
+                height: 297mm !important;
+                padding: 8mm !important;
+                margin: 0 !important;
+                page-break-inside: avoid !important;
+                transform: scale(1) !important;
+                zoom: 1 !important;
+                font-size: 8pt !important;
+              }
+              
+              .print-content * {
+                max-width: 100% !important;
+              }
+              
+              * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-content">
+            ${receiptContent.innerHTML}
+          </div>
+        </body>
+      </html>
+    `);
+    printDoc.close();
+    
+    // Wait for iframe to load, then print directly
+    printFrame.onload = () => {
+      setTimeout(() => {
+        printFrame.contentWindow.focus();
+        printFrame.contentWindow.print();
+        // Remove iframe after printing
+        setTimeout(() => {
+          if (document.body.contains(printFrame)) {
+            document.body.removeChild(printFrame);
+          }
+        }, 1000);
+      }, 250);
+    };
+    
+    // Fallback if onload doesn't fire
+    setTimeout(() => {
+      if (printFrame.contentWindow) {
+        printFrame.contentWindow.focus();
+        printFrame.contentWindow.print();
+        setTimeout(() => {
+          if (document.body.contains(printFrame)) {
+            document.body.removeChild(printFrame);
+          }
+        }, 1000);
+      }
+    }, 500);
   }
 
   const { subtotal, discount, vat, total, saleVatAmount } = calculateTotals();
@@ -726,14 +1325,20 @@ export default function Billing() {
                       <p className="font-medium text-gray-800 text-sm leading-tight truncate">
                         {item.product_name}
                       </p>
+                      {item.selected_unit && item.display_quantity !== undefined && item.product_base_unit && (
+                        <p className="text-xs text-blue-600 font-medium mt-0.5">
+                          {parseFloat(item.display_quantity).toFixed(4).replace(/\.?0+$/, '')} {item.selected_unit} = {parseFloat(item.quantity).toFixed(4).replace(/\.?0+$/, '')} {item.product_base_unit}
+                        </p>
+                      )}
                       <p className="text-xs text-gray-500 truncate">{item.category_name}</p>
                       {(item.vat_percentage > 0 && item.vat_amount > 0) && (
                         <p className="text-xs text-blue-600">incl. VAT {formatCurrency(item.vat_amount)}</p>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className="flex items-start gap-2 flex-shrink-0">
                       {(item.has_weight === 1 || item.has_weight === true) ? (
-                        <>
+                        <div className="text-right">
+                          <div className="text-xs text-gray-500 mb-1">Price</div>
                           <input
                             type="number"
                             value={item.unit_price}
@@ -751,39 +1356,89 @@ export default function Billing() {
                               updatePrice(item.id, value);
                             }}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-16 px-1.5 py-1 border border-gray-300 rounded text-xs text-right focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                            className="w-20 h-8 px-2 py-1 border border-gray-300 rounded text-xs text-right focus:ring-2 focus:ring-primary-500 focus:outline-none"
                             step="0.01"
                             min="0"
                             placeholder="0"
                           />
-                          <span className="font-semibold text-gray-800 text-sm min-w-[52px] text-right">
+                          <div className="text-xs text-gray-500 mt-1">Total</div>
+                          <span className="font-semibold text-gray-800 text-sm block">
                             {formatCurrency(item.total_price)}
                           </span>
-                        </>
-                      ) : null}
+                        </div>
+                      ) : item.selected_unit && item.product_base_unit ? (
+                        <div className="text-right flex items-start gap-2">
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">Unit Price</div>
+                            <input
+                              type="number"
+                              value={item.unit_price}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (value === '' || value === '.') {
+                                  updatePrice(item.id, 0);
+                                  return;
+                                }
+                                const numValue = parseFloat(value);
+                                if (!isNaN(numValue) && numValue >= 0) updatePrice(item.id, numValue);
+                              }}
+                              onBlur={(e) => {
+                                const value = parseFloat(e.target.value) || 0;
+                                updatePrice(item.id, value);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-24 h-8 px-2 py-1 border border-gray-300 rounded text-xs text-right focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                              step="0.01"
+                              min="0"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">Total</div>
+                            <span className="font-semibold text-gray-800 text-base block">
+                              {formatCurrency(item.total_price)}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-right">
+                          <div className="text-xs text-gray-500 mb-1">Total</div>
+                          <span className="font-semibold text-gray-800 text-base block">
+                            {formatCurrency(item.total_price)}
+                          </span>
+                        </div>
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           removeFromCart(item.id);
                         }}
-                        className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded flex-shrink-0"
+                        className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded flex-shrink-0 transition-colors mt-1"
+                        title="Remove item"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-5 h-5" />
                       </button>
                     </div>
                   </div>
 
                   {/* Row 2: Quantity controls | For non-weighted only: Unit price + Total */}
-                  <div className="flex items-center justify-between gap-2 flex-nowrap border-t border-gray-200 pt-2 mt-0.5">
-                    <div className="flex items-center gap-1.5 flex-nowrap min-h-[28px]">
+                  <div className="flex items-center justify-between gap-2 flex-nowrap border-t border-gray-200 pt-2 mt-2">
+                    <div className="flex items-center gap-1.5 flex-nowrap min-h-[32px] flex-1 min-w-0">
                       <button
                         onClick={() => {
-                          const step = item.has_weight ? 0.1 : 1;
-                          const minQty = item.has_weight ? 0.001 : 0.01;
-                          const newQty = Math.max(minQty, parseFloat((item.quantity - step).toFixed(4)));
-                          updateQuantity(item.id, newQty);
+                          if (item.selected_unit && item.product_base_unit) {
+                            const currentDisplayQty = item.display_quantity || item.quantity;
+                            const step = 1;
+                            const newDisplayQty = Math.max(0.0001, currentDisplayQty - step);
+                            handleCartQuantityChange(item.id, newDisplayQty);
+                          } else {
+                            const step = item.has_weight ? 0.1 : 1;
+                            const minQty = item.has_weight ? 0.001 : 0.01;
+                            const newQty = Math.max(minQty, parseFloat((item.quantity - step).toFixed(4)));
+                            updateQuantity(item.id, newQty);
+                          }
                         }}
-                        className="w-7 h-7 flex-shrink-0 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300"
+                        className="w-8 h-8 flex-shrink-0 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300 transition-colors"
                       >
                         <Minus className="w-4 h-4" />
                       </button>
@@ -809,7 +1464,7 @@ export default function Billing() {
                               if (isNaN(num) || num <= 0) updateQuantity(item.id, 0.001);
                             }}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-20 h-7 flex-shrink-0 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                            className="w-20 h-8 flex-shrink-0 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500 focus:outline-none font-medium"
                             placeholder={item.weight_unit === 'kg' ? 'kg' : 'g'}
                           />
                           <button
@@ -817,11 +1472,11 @@ export default function Billing() {
                               const newQty = parseFloat((item.quantity + 0.1).toFixed(4));
                               updateQuantity(item.id, newQty);
                             }}
-                            className="w-7 h-7 flex-shrink-0 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300"
+                            className="w-8 h-8 flex-shrink-0 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300 transition-colors"
                           >
                             <Plus className="w-4 h-4" />
                           </button>
-                          <span className="text-xs text-gray-500 flex-shrink-0 whitespace-nowrap self-center">
+                          <span className="text-xs text-gray-500 flex-shrink-0 whitespace-nowrap self-center ml-1">
                             {item.quantity >= 1
                               ? `= ${item.quantity} kg`
                               : `= ${Math.round(item.quantity * 1000)} g`}
@@ -833,77 +1488,124 @@ export default function Billing() {
                               setCart(cart.map((c) => (c.id === item.id ? { ...c, weight_unit: newUnit } : c)));
                             }}
                             onClick={(e) => e.stopPropagation()}
-                            className="h-7 flex-shrink-0 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-primary-500 w-14"
+                            className="h-8 flex-shrink-0 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-primary-500 w-14 bg-white"
                           >
                             <option value="gram">g</option>
                             <option value="kg">kg</option>
                           </select>
                         </>
+                      ) : item.selected_unit && item.product_base_unit ? (
+                        <>
+                          <input
+                            type="number"
+                            step="0.0001"
+                            min="0.0001"
+                            value={item.display_quantity || item.quantity}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || value === '.') {
+                                setCart(cart.map((c) => (c.id === item.id ? { ...c, display_quantity: value === '' ? '' : '.' } : c)));
+                                return;
+                              }
+                              const numValue = parseFloat(value);
+                              if (!isNaN(numValue) && numValue > 0) handleCartQuantityChange(item.id, numValue);
+                            }}
+                            onBlur={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (isNaN(value) || value <= 0) handleCartQuantityChange(item.id, 0.0001);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-20 h-8 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500 focus:outline-none font-medium"
+                            placeholder="0"
+                          />
+                          <select
+                            value={item.selected_unit}
+                            onChange={(e) => handleCartUnitChange(item.id, e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-8 flex-shrink-0 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-primary-500 bg-white min-w-[70px]"
+                          >
+                            {getAvailableUnits(item.product_base_unit).map((unit) => (
+                              <option key={unit} value={unit}>
+                                {unit}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => {
+                              const currentDisplayQty = item.display_quantity || item.quantity;
+                              const newDisplayQty = parseFloat((currentDisplayQty + 1).toFixed(4));
+                              handleCartQuantityChange(item.id, newDisplayQty);
+                            }}
+                            className="w-8 h-8 flex-shrink-0 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300 transition-colors ml-2"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </>
                       ) : (
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (value === '' || value === '.') {
-                              setCart(cart.map((c) => (c.id === item.id ? { ...c, quantity: value === '' ? '' : '.' } : c)));
-                              return;
-                            }
-                            const numValue = parseFloat(value);
-                            if (!isNaN(numValue) && numValue > 0) updateQuantity(item.id, numValue);
-                            else if (numValue === 0) setCart(cart.map((c) => (c.id === item.id ? { ...c, quantity: 0 } : c)));
-                          }}
-                          onBlur={(e) => {
-                            const value = parseFloat(e.target.value);
-                            if (isNaN(value) || value <= 0) updateQuantity(item.id, 0.01);
-                            else updateQuantity(item.id, value);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-14 h-7 px-1.5 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500 focus:outline-none"
-                          step="0.01"
-                          min="0.01"
-                          placeholder="0"
-                        />
-                      )}
-                      {!item.has_weight && (
-                        <button
-                          onClick={() => {
-                            const newQty = parseFloat((item.quantity + 1).toFixed(4));
-                            updateQuantity(item.id, newQty);
-                          }}
-                          className="w-7 h-7 flex-shrink-0 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
+                        <>
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || value === '.') {
+                                setCart(cart.map((c) => (c.id === item.id ? { ...c, quantity: value === '' ? '' : '.' } : c)));
+                                return;
+                              }
+                              const numValue = parseFloat(value);
+                              if (!isNaN(numValue) && numValue > 0) updateQuantity(item.id, numValue);
+                              else if (numValue === 0) setCart(cart.map((c) => (c.id === item.id ? { ...c, quantity: 0 } : c)));
+                            }}
+                            onBlur={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (isNaN(value) || value <= 0) updateQuantity(item.id, 0.01);
+                              else updateQuantity(item.id, value);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-16 h-8 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-primary-500 focus:outline-none font-medium"
+                            step="0.01"
+                            min="0.01"
+                            placeholder="0"
+                          />
+                          <button
+                            onClick={() => {
+                              const newQty = parseFloat((item.quantity + 1).toFixed(4));
+                              updateQuantity(item.id, newQty);
+                            }}
+                            className="w-8 h-8 flex-shrink-0 bg-gray-200 rounded flex items-center justify-center hover:bg-gray-300 transition-colors"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </>
                       )}
                     </div>
-                    {!item.has_weight && (
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <input
-                          type="number"
-                          value={item.unit_price}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (value === '' || value === '.') {
-                              updatePrice(item.id, 0);
-                              return;
-                            }
-                            const numValue = parseFloat(value);
-                            if (!isNaN(numValue) && numValue >= 0) updatePrice(item.id, numValue);
-                          }}
-                          onBlur={(e) => {
-                            const value = parseFloat(e.target.value) || 0;
-                            updatePrice(item.id, value);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-16 h-7 px-1.5 py-1 border border-gray-300 rounded text-xs text-right focus:ring-2 focus:ring-primary-500 focus:outline-none"
-                          step="0.01"
-                          min="0"
-                          placeholder="0"
-                        />
-                        <span className="font-semibold text-gray-800 text-sm min-w-[52px] text-right">
-                          {formatCurrency(item.total_price)}
-                        </span>
+                    {!item.has_weight && !(item.selected_unit && item.product_base_unit) && (
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="text-right">
+                          <div className="text-xs text-gray-500 mb-1">Price</div>
+                          <input
+                            type="number"
+                            value={item.unit_price}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || value === '.') {
+                                updatePrice(item.id, 0);
+                                return;
+                              }
+                              const numValue = parseFloat(value);
+                              if (!isNaN(numValue) && numValue >= 0) updatePrice(item.id, numValue);
+                            }}
+                            onBlur={(e) => {
+                              const value = parseFloat(e.target.value) || 0;
+                              updatePrice(item.id, value);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-20 h-8 px-2 py-1 border border-gray-300 rounded text-xs text-right focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                            step="0.01"
+                            min="0"
+                            placeholder="0"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1287,6 +1989,8 @@ export default function Billing() {
         />
       )}
 
+      
+
       <ProductModal
         open={showAddProductModal}
         onClose={() => setShowAddProductModal(false)}
@@ -1326,6 +2030,18 @@ export default function Billing() {
           initialSaleDate={saleDate}
           onClose={() => setShowSplitPaymentModal(false)}
           onConfirm={handleSplitPayment}
+        />
+      )}
+
+      {showUnitSelectionModal && productToAdd && (
+        <UnitSelectionModal
+          open={showUnitSelectionModal}
+          product={productToAdd}
+          onClose={() => {
+            setShowUnitSelectionModal(false);
+            setProductToAdd(null);
+          }}
+          onConfirm={handleUnitSelectionConfirm}
         />
       )}
     </div>

@@ -75,11 +75,13 @@ export default function Header({ onMenuToggle, isMenuOpen }) {
             </div>
           ) : (
             <div className="mr-4 flex-shrink-0 w-10 h-10 bg-slate-700 rounded flex items-center justify-center">
-              <span className="text-white text-xs font-bold">POS</span>
+              <span className="text-white text-xs font-bold">
+                {settings.restaurant_name ? settings.restaurant_name.substring(0, 3).toUpperCase() : 'POS'}
+              </span>
             </div>
           )}
           <h2 className="text-xl font-bold text-white truncate">
-            POS
+            {settings.restaurant_name || 'POS'}
           </h2>
         </div>
 

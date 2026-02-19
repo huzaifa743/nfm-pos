@@ -82,6 +82,53 @@ router.get('/stats', authenticateToken, requireTenant, getTenantDb, closeTenantD
       `SELECT COUNT(*) as count FROM customers WHERE ${todayCondition}`
     );
 
+    // Employee Statistics
+    const totalEmployees = await req.db.get('SELECT COUNT(*) as count FROM employees WHERE status = ?', ['active']);
+    const now = new Date();
+    const currentMonth = ['January','February','March','April','May','June','July','August','September','October','November','December'][now.getMonth()];
+    const currentYear = now.getFullYear();
+    const salaryStats = await req.db.get(
+      `SELECT 
+        COALESCE(SUM(CASE WHEN status = 'paid' THEN net_pay ELSE 0 END), 0) as total_paid,
+        COALESCE(SUM(CASE WHEN status IN ('pending', 'partial') THEN remaining_amount ELSE 0 END), 0) as pending_salaries,
+        COALESCE(SUM(net_pay), 0) as total_salary_month,
+        COALESCE(SUM(commission_amount), 0) as total_commission,
+        COALESCE(SUM(basic_salary), 0) as total_basic_salary
+       FROM employee_salaries 
+       WHERE month = ? AND year = ?`,
+      [currentMonth, currentYear]
+    );
+
+    // Supplier Statistics
+    const totalSuppliers = await req.db.get('SELECT COUNT(*) as count FROM suppliers WHERE status = ?', ['active']);
+    const supplierBalance = await req.db.get('SELECT COALESCE(SUM(balance), 0) as total FROM suppliers WHERE status = ?', ['active']);
+
+    // Purchase Order Statistics
+    const totalPOs = await req.db.get('SELECT COUNT(*) as count FROM purchase_orders');
+    const pendingPOs = await req.db.get("SELECT COUNT(*) as count FROM purchase_orders WHERE status IN ('draft', 'confirmed')");
+
+    // Expense Statistics (This Month)
+    const expenseStats = await req.db.get(
+      `SELECT COALESCE(SUM(amount), 0) as total 
+       FROM expenses 
+       WHERE strftime('%Y', expense_date) = ? AND strftime('%m', expense_date) = ?`,
+      [String(currentYear), String(now.getMonth() + 1).padStart(2, '0')]
+    );
+
+    // Cash Balance (includes sales that are already in cash_transactions)
+    const cashBalance = await req.db.get('SELECT balance_after FROM cash_transactions ORDER BY id DESC LIMIT 1');
+    const cashBalanceValue = cashBalance ? parseFloat(cashBalance.balance_after) : 0;
+    
+    // For sales created before cash_transactions integration, add them separately
+    // (New sales are already added to cash_transactions when created)
+    const cashSalesNotRecorded = await req.db.get(
+      `SELECT COALESCE(SUM(s.total), 0) as total 
+       FROM sales s 
+       LEFT JOIN cash_transactions ct ON ct.reference_type = 'sale' AND ct.reference_id = s.id
+       WHERE s.payment_method = 'cash' AND ct.id IS NULL`
+    );
+    const totalCashBalance = cashBalanceValue + parseFloat(cashSalesNotRecorded?.total || 0);
+
     // Calculate comparison percentages
     const revenueVsYesterday = salesYesterday.total > 0 
       ? ((revenueToday.total - salesYesterday.total) / salesYesterday.total * 100).toFixed(1)
@@ -110,6 +157,18 @@ router.get('/stats', authenticateToken, requireTenant, getTenantDb, closeTenantD
       lowStockProducts: lowStockProducts,
       totalCustomers: totalCustomers.count,
       newCustomersToday: newCustomersToday.count,
+      // New module stats
+      totalEmployees: totalEmployees.count,
+      totalSalaryThisMonth: parseFloat(salaryStats?.total_salary_month || 0),
+      totalBasicSalary: parseFloat(salaryStats?.total_basic_salary || 0),
+      totalCommission: parseFloat(salaryStats?.total_commission || 0),
+      pendingSalaries: parseFloat(salaryStats?.pending_salaries || 0),
+      totalSuppliers: totalSuppliers.count,
+      supplierBalance: parseFloat(supplierBalance?.total || 0),
+      totalPurchaseOrders: totalPOs.count,
+      pendingPurchaseOrders: pendingPOs.count,
+      totalExpensesThisMonth: parseFloat(expenseStats?.total || 0),
+      cashBalance: totalCashBalance,
       comparisons: {
         revenueVsYesterday: parseFloat(revenueVsYesterday),
         salesVsYesterday: parseFloat(salesVsYesterday),

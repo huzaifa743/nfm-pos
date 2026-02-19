@@ -13,6 +13,7 @@ const stockTrackingMigratedTenants = new Set();
 const purchaseRateMigratedTenants = new Set();
 const hasWeightMigratedTenants = new Set();
 const vatPercentageMigratedTenants = new Set();
+const unitFieldsMigratedTenants = new Set();
 
 function normalizeBoolean(value) {
   if (value === true || value === 1 || value === '1') return true;
@@ -59,6 +60,26 @@ async function ensureVatPercentageColumn(db, tenantCode) {
     if (!err.message || !err.message.includes('duplicate column')) throw err;
   }
   vatPercentageMigratedTenants.add(tenantCode);
+}
+
+async function ensureUnitFieldsColumns(db, tenantCode) {
+  if (!tenantCode || unitFieldsMigratedTenants.has(tenantCode)) return;
+  try {
+    await db.run('ALTER TABLE products ADD COLUMN product_base_unit TEXT');
+  } catch (err) {
+    if (!err.message || !err.message.includes('duplicate column')) throw err;
+  }
+  try {
+    await db.run('ALTER TABLE products ADD COLUMN product_purchase_unit TEXT');
+  } catch (err) {
+    if (!err.message || !err.message.includes('duplicate column')) throw err;
+  }
+  try {
+    await db.run('ALTER TABLE products ADD COLUMN product_sale_unit TEXT');
+  } catch (err) {
+    if (!err.message || !err.message.includes('duplicate column')) throw err;
+  }
+  unitFieldsMigratedTenants.add(tenantCode);
 }
 
 async function ensureExpiryDateColumn(db, tenantCode) {
@@ -158,6 +179,7 @@ router.get('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, as
       await ensurePurchaseRateColumn(req.db, tenantCode);
       await ensureHasWeightColumns(req.db, tenantCode);
       await ensureVatPercentageColumn(req.db, tenantCode);
+      await ensureUnitFieldsColumns(req.db, tenantCode);
     }
 
     const { category_id, search, barcode } = req.query;
@@ -199,6 +221,7 @@ router.post('/import', authenticateToken, preventDemoModifications, requireTenan
       await ensurePurchaseRateColumn(req.db, tenantCode);
       await ensureHasWeightColumns(req.db, tenantCode);
       await ensureVatPercentageColumn(req.db, tenantCode);
+      await ensureUnitFieldsColumns(req.db, tenantCode);
     }
 
     const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
@@ -254,6 +277,9 @@ router.post('/import', authenticateToken, preventDemoModifications, requireTenan
       const vatPctValue = normalizeNumber(row.vat_percentage);
       const vatPct = vatPctValue != null ? Math.max(0, Math.min(100, vatPctValue)) : 0;
       const descriptionValue = row.description != null ? String(row.description).trim() : null;
+      const baseUnit = row.product_base_unit != null ? String(row.product_base_unit).trim() : null;
+      const purchaseUnit = row.product_purchase_unit != null ? String(row.product_purchase_unit).trim() : null;
+      const saleUnit = row.product_sale_unit != null ? String(row.product_sale_unit).trim() : null;
 
       let existing = null;
       if (barcodeValue) {
@@ -276,14 +302,14 @@ router.post('/import', authenticateToken, preventDemoModifications, requireTenan
 
       if (existing) {
         await req.db.run(
-          'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, expiry_date = ?, barcode = ?, stock_tracking_enabled = ?, stock_quantity = ?, purchase_rate = ?, has_weight = ?, weight_unit = ?, vat_percentage = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-          [name, priceValue, categoryId || null, descriptionValue, expiry, barcodeValue, stockTracking, stockQty, purchaseRate, hasWeight, weightUnit, vatPct, existing.id]
+          'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, expiry_date = ?, barcode = ?, stock_tracking_enabled = ?, stock_quantity = ?, purchase_rate = ?, has_weight = ?, weight_unit = ?, vat_percentage = ?, product_base_unit = ?, product_purchase_unit = ?, product_sale_unit = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [name, priceValue, categoryId || null, descriptionValue, expiry, barcodeValue, stockTracking, stockQty, purchaseRate, hasWeight, weightUnit, vatPct, baseUnit, purchaseUnit, saleUnit, existing.id]
         );
         updated += 1;
       } else {
         await req.db.run(
-          'INSERT INTO products (name, price, category_id, description, stock_quantity, expiry_date, barcode, stock_tracking_enabled, purchase_rate, has_weight, weight_unit, vat_percentage) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [name, priceValue, categoryId || null, descriptionValue, stockQty, expiry, barcodeValue, stockTracking, purchaseRate, hasWeight, weightUnit, vatPct]
+          'INSERT INTO products (name, price, category_id, description, stock_quantity, expiry_date, barcode, stock_tracking_enabled, purchase_rate, has_weight, weight_unit, vat_percentage, product_base_unit, product_purchase_unit, product_sale_unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [name, priceValue, categoryId || null, descriptionValue, stockQty, expiry, barcodeValue, stockTracking, purchaseRate, hasWeight, weightUnit, vatPct, baseUnit, purchaseUnit, saleUnit]
         );
         created += 1;
       }
@@ -307,6 +333,7 @@ router.get('/:id', authenticateToken, requireTenant, getTenantDb, closeTenantDb,
       await ensurePurchaseRateColumn(req.db, tenantCode);
       await ensureHasWeightColumns(req.db, tenantCode);
       await ensureVatPercentageColumn(req.db, tenantCode);
+      await ensureUnitFieldsColumns(req.db, tenantCode);
     }
 
     const product = await req.db.get(
@@ -336,9 +363,10 @@ router.post('/', authenticateToken, preventDemoModifications, requireTenant, get
       await ensurePurchaseRateColumn(req.db, tenantCode);
       await ensureHasWeightColumns(req.db, tenantCode);
       await ensureVatPercentageColumn(req.db, tenantCode);
+      await ensureUnitFieldsColumns(req.db, tenantCode);
     }
 
-    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity, purchase_rate, has_weight, weight_unit, vat_percentage } = req.body;
+    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity, purchase_rate, has_weight, weight_unit, vat_percentage, product_base_unit, product_purchase_unit, product_sale_unit } = req.body;
 
     // Validate and trim name
     const trimmedName = name ? String(name).trim() : '';
@@ -366,10 +394,13 @@ router.post('/', authenticateToken, preventDemoModifications, requireTenant, get
     const hasWeight = has_weight === 'true' || has_weight === true ? 1 : 0;
     const weightUnit = hasWeight && weight_unit === 'kg' ? 'kg' : (hasWeight ? 'gram' : null);
     const vatPct = vat_percentage != null && !isNaN(parseFloat(vat_percentage)) ? Math.max(0, Math.min(100, parseFloat(vat_percentage))) : 0;
+    const baseUnit = product_base_unit && String(product_base_unit).trim() ? String(product_base_unit).trim() : null;
+    const purchaseUnit = product_purchase_unit && String(product_purchase_unit).trim() ? String(product_purchase_unit).trim() : null;
+    const saleUnit = product_sale_unit && String(product_sale_unit).trim() ? String(product_sale_unit).trim() : null;
 
     const result = await req.db.run(
-      'INSERT INTO products (name, price, category_id, description, stock_quantity, expiry_date, barcode, stock_tracking_enabled, purchase_rate, has_weight, weight_unit, vat_percentage) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [trimmedName, parsedPrice, category_id || null, description || null, stockQty, expiry, barcodeValue, stockTracking, purchaseRate, hasWeight, weightUnit, vatPct]
+      'INSERT INTO products (name, price, category_id, description, stock_quantity, expiry_date, barcode, stock_tracking_enabled, purchase_rate, has_weight, weight_unit, vat_percentage, product_base_unit, product_purchase_unit, product_sale_unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [trimmedName, parsedPrice, category_id || null, description || null, stockQty, expiry, barcodeValue, stockTracking, purchaseRate, hasWeight, weightUnit, vatPct, baseUnit, purchaseUnit, saleUnit]
     );
 
     const product = await req.db.get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [result.id]);
@@ -392,9 +423,10 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
       await ensurePurchaseRateColumn(req.db, tenantCode);
       await ensureHasWeightColumns(req.db, tenantCode);
       await ensureVatPercentageColumn(req.db, tenantCode);
+      await ensureUnitFieldsColumns(req.db, tenantCode);
     }
 
-    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity, purchase_rate, has_weight, weight_unit, vat_percentage } = req.body;
+    const { name, price, category_id, description, expiry_date, barcode, stock_tracking_enabled, stock_quantity, purchase_rate, has_weight, weight_unit, vat_percentage, product_base_unit, product_purchase_unit, product_sale_unit } = req.body;
     
     // Validate and trim name
     const trimmedName = name ? String(name).trim() : '';
@@ -420,6 +452,9 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
     const hasWeight = has_weight === 'true' || has_weight === true ? 1 : 0;
     const weightUnit = hasWeight && weight_unit === 'kg' ? 'kg' : (hasWeight ? 'gram' : null);
     const vatPct = vat_percentage != null && !isNaN(parseFloat(vat_percentage)) ? Math.max(0, Math.min(100, parseFloat(vat_percentage))) : 0;
+    const baseUnit = product_base_unit && String(product_base_unit).trim() ? String(product_base_unit).trim() : null;
+    const purchaseUnit = product_purchase_unit && String(product_purchase_unit).trim() ? String(product_purchase_unit).trim() : null;
+    const saleUnit = product_sale_unit && String(product_sale_unit).trim() ? String(product_sale_unit).trim() : null;
     
     // Get current product to preserve stock_quantity if stock tracking is being disabled
     const currentProduct = await req.db.get('SELECT stock_tracking_enabled, stock_quantity FROM products WHERE id = ?', [productId]);
@@ -433,8 +468,8 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
     }
 
     await req.db.run(
-      'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, expiry_date = ?, barcode = ?, stock_tracking_enabled = ?, stock_quantity = ?, purchase_rate = ?, has_weight = ?, weight_unit = ?, vat_percentage = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [trimmedName, parsedPrice, category_id || null, description || null, expiry, barcodeValue, stockTracking, stockQty, purchaseRate, hasWeight, weightUnit, vatPct, productId]
+      'UPDATE products SET name = ?, price = ?, category_id = ?, description = ?, expiry_date = ?, barcode = ?, stock_tracking_enabled = ?, stock_quantity = ?, purchase_rate = ?, has_weight = ?, weight_unit = ?, vat_percentage = ?, product_base_unit = ?, product_purchase_unit = ?, product_sale_unit = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [trimmedName, parsedPrice, category_id || null, description || null, expiry, barcodeValue, stockTracking, stockQty, purchaseRate, hasWeight, weightUnit, vatPct, baseUnit, purchaseUnit, saleUnit, productId]
     );
 
     const product = await req.db.get('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?', [productId]);

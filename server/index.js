@@ -170,6 +170,14 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/deliveries', require('./routes/deliveries'));
 app.use('/api/delivery-boys', require('./routes/deliveryBoys').router);
+app.use('/api/employees', require('./routes/employees'));
+app.use('/api/salaries', require('./routes/salaries'));
+app.use('/api/salary-reports', require('./routes/salaryReports'));
+app.use('/api/suppliers', require('./routes/suppliers'));
+app.use('/api/purchase-orders', require('./routes/purchaseOrders'));
+app.use('/api/expenses', require('./routes/expenses'));
+app.use('/api/cash', require('./routes/cash'));
+app.use('/api/unit-conversions', require('./routes/unitConversions'));
 
 // Serve React app in production (catch-all must be last)
 if (process.env.NODE_ENV === 'production') {

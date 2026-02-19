@@ -14,6 +14,12 @@ import Settings from './pages/Settings';
 import Tenants from './pages/Tenants';
 import Deliveries from './pages/Deliveries';
 import DeliveryBoys from './pages/DeliveryBoys';
+import EmployeesAndSalaries from './pages/EmployeesAndSalaries';
+import Suppliers from './pages/Suppliers';
+import PurchaseOrders from './pages/PurchaseOrders';
+import Expenses from './pages/Expenses';
+import CashManagement from './pages/CashManagement';
+import UnitConversion from './pages/UnitConversion';
 import Layout from './components/Layout';
 import LoadingScreen from './components/LoadingScreen';
 
@@ -59,6 +65,12 @@ function AppRoutes() {
         <Route path="tenants" element={<Tenants />} />
         <Route path="deliveries" element={<Deliveries />} />
         <Route path="delivery-boys" element={<DeliveryBoys />} />
+        <Route path="employees" element={<EmployeesAndSalaries />} />
+        <Route path="suppliers" element={<Suppliers />} />
+        <Route path="purchase-orders" element={<PurchaseOrders />} />
+        <Route path="expenses" element={<Expenses />} />
+        <Route path="cash" element={<CashManagement />} />
+        <Route path="unit-conversions" element={<UnitConversion />} />
       </Route>
     </Routes>
   );

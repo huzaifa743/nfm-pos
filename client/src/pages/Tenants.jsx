@@ -283,12 +283,15 @@ export default function Tenants() {
                       >
                         <Edit className="w-5 h-5" />
                       </button>
-                      <button
-                        onClick={() => handleDelete(tenant.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                      {user?.role === 'admin' && (
+                        <button
+                          onClick={() => handleDelete(tenant.id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
