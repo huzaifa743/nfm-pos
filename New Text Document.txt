@@ -1,3 +1,3 @@
 git add .
-git commit -m "Before: Product price 10 was treated as ex-VAT, so sale VAT was added on top → Subtotal 10.00, VAT 0.50, Total 10.50."
+git commit -m "Fixing both receipt components to derive the VAT-inclusive subtotal from total and VAT % when the stored subtotal is wrong (e.g. old records or legacy data)."
 git push origin main
