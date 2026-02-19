@@ -603,32 +603,38 @@ export default function Billing() {
   };
 
   const calculateTotals = () => {
-    // Calculate base subtotal (excluding VAT) and item-level VAT separately
+    // Cart amounts are treated as VAT-inclusive (price 10 = customer pays 10)
     const baseSubtotal = cart.reduce((sum, item) => {
       const basePrice = item.base_unit_price !== undefined ? item.base_unit_price : item.unit_price;
       return sum + basePrice * item.quantity;
     }, 0);
     const itemVat = cart.reduce((sum, item) => sum + (item.vat_amount || 0), 0);
     
-    // For discount calculation, use base subtotal
     const discount =
       discountType === 'percentage'
         ? (baseSubtotal * discountAmount) / 100
         : discountAmount;
-  
-    // Calculate sale-level VAT on base subtotal after discount
+
     const saleVatRate = noVat ? 0 : (parseFloat(saleVatPercentage) || 0);
-    const saleVatAmount = ((baseSubtotal - discount) * saleVatRate) / 100;
-    
-    // Total VAT = item-level VAT + sale-level VAT
-    const totalVat = itemVat + saleVatAmount;
-    
-    // Subtotal shown in receipt should be base subtotal (before VAT)
-    const subtotal = baseSubtotal;
-    
-    const total = baseSubtotal - discount + totalVat;
+
+    // Total = what customer pays. When sale VAT is set, cart prices are inclusive — we do NOT add VAT on top.
+    const total = baseSubtotal - discount + itemVat;
+
+    let subtotal;
+    let vat;
+    let saleVatAmount;
+    if (saleVatRate > 0) {
+      // Split total into subtotal (ex VAT) and VAT: subtotal = total / (1 + rate/100), vat = total - subtotal
+      subtotal = Math.round((total / (1 + saleVatRate / 100)) * 100) / 100;
+      vat = total - subtotal;
+      saleVatAmount = vat;
+    } else {
+      subtotal = baseSubtotal - discount;
+      saleVatAmount = 0;
+      vat = itemVat;
+    }
   
-    return { subtotal, discount, vat: totalVat, saleVatAmount, total };
+    return { subtotal, discount, vat, saleVatAmount, total };
   };
 
   const handleCheckout = () => {
