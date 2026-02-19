@@ -53,7 +53,11 @@ export default function Billing() {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [discountType, setDiscountType] = useState('fixed');
   const [saleVatPercentage, setSaleVatPercentage] = useState(null);
-  const [noVat, setNoVat] = useState(false);
+  const [noVat, setNoVat] = useState(() => {
+    // Load noVat preference from localStorage on mount
+    const savedNoVat = localStorage.getItem('billing_noVat');
+    return savedNoVat === 'true';
+  });
   
 
   const [showReceipt, setShowReceipt] = useState(false);
@@ -1982,7 +1986,10 @@ export default function Billing() {
           onClose={() => setShowVatModal(false)}
           onApply={(vatData) => {
             setSaleVatPercentage(vatData.percentage || 0);
-            setNoVat(!!vatData.noVat);
+            const newNoVat = !!vatData.noVat;
+            setNoVat(newNoVat);
+            // Persist noVat preference to localStorage
+            localStorage.setItem('billing_noVat', String(newNoVat));
             setShowVatModal(false);
             toast.success('VAT applied successfully');
           }}
