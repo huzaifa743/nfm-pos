@@ -1,21 +1,14 @@
-// Utility function to get the base URL for API and static files
+// Use relative URLs so Vite proxy (dev) and same-origin (prod) work. Avoids ERR_CONNECTION_REFUSED to localhost:5000.
 export const getBaseURL = () => {
   if (import.meta.env.VITE_API_URL) {
     const apiUrl = import.meta.env.VITE_API_URL;
-    // If VITE_API_URL is like '/api' or 'http://localhost:5000/api', extract base
     if (apiUrl.startsWith('http')) {
-      // Full URL like 'http://localhost:5000/api' -> 'http://localhost:5000'
-      return apiUrl.replace('/api', '');
-    } else if (apiUrl.startsWith('/api')) {
-      // Relative URL like '/api' -> '' (empty, use relative paths)
-      return '';
+      return apiUrl.replace(/\/api\/?$/, '');
     }
-    return apiUrl.replace('/api', '');
+    if (apiUrl.startsWith('/')) return '';
+    return apiUrl.replace(/\/api\/?$/, '');
   }
-  if (import.meta.env.PROD) {
-    return ''; // Relative URL in production
-  }
-  return 'http://localhost:5000'; // Local development
+  return ''; // Relative: /api and /uploads go through proxy (dev) or same origin (prod)
 };
 
 // Helper to get full URL for uploads/images

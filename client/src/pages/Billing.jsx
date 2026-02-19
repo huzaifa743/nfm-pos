@@ -658,7 +658,7 @@ export default function Billing() {
       const holdData = {
         customer_id: selectedCustomer?.id || null,
         cart_data: cart,
-        subtotal: cart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0),
+        subtotal,
         discount_amount: discount,
         discount_type: discountType,
         vat_percentage: noVat ? 0 : (parseFloat(saleVatPercentage) || 0),
@@ -799,10 +799,7 @@ export default function Billing() {
             display_quantity: item.display_quantity || null,
           };
         }),
-        subtotal: parseFloat(cart.reduce((sum, item) => {
-          const basePrice = item.base_unit_price !== undefined ? item.base_unit_price : item.unit_price;
-          return sum + basePrice * item.quantity;
-        }, 0)),
+        subtotal: parseFloat(subtotal),
         discount_amount: parseFloat(discount),
         discount_type: discountType,
         vat_percentage: noVat ? 0 : (parseFloat(saleVatPercentage) || 0),
@@ -917,10 +914,7 @@ export default function Billing() {
       const saleData = {
         customer_id: selectedCustomer?.id || null,
         items: validatedItems,
-        subtotal: parseFloat(cart.reduce((sum, item) => {
-          const basePrice = item.base_unit_price !== undefined ? item.base_unit_price : item.unit_price;
-          return sum + basePrice * item.quantity;
-        }, 0)),
+        subtotal: parseFloat(subtotal),
         discount_amount: parseFloat(discount),
         discount_type: discountType,
         vat_percentage: noVat ? 0 : (parseFloat(saleVatPercentage) || 0),

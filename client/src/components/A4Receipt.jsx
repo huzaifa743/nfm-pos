@@ -125,6 +125,14 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
     return sum + qty;
   }, 0);
 
+  // VAT-inclusive display: ensure subtotal + VAT = total (e.g. total 10, 5% VAT → subtotal 9.52, VAT 0.48)
+  const totalNum = parseFloat(sale.total || 0);
+  const vatPct = parseFloat(sale.vat_percentage || 0);
+  const displaySubtotal = vatPct > 0 && totalNum > 0
+    ? Math.round((totalNum / (1 + vatPct / 100)) * 100) / 100
+    : parseFloat(sale.subtotal ?? 0);
+  const displayVat = vatPct > 0 && totalNum > 0 ? totalNum - displaySubtotal : parseFloat(sale.vat_amount ?? 0);
+
   const amountInWords = numberToWords(parseFloat(sale.total || 0));
   
   const paymentStatus = () => {
@@ -160,8 +168,8 @@ Customer: ${customer.name}
 ${customer.phone !== 'N/A' ? `Phone: ${customer.phone}` : ''}
 ${customer.address !== 'N/A' ? `Address: ${customer.address}` : ''}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Subtotal: ${formatCurrency(sale.subtotal)}
-${sale.vat_amount > 0 ? `VAT (${sale.vat_percentage || 0}%): ${formatCurrency(sale.vat_amount)}` : ''}
+Subtotal: ${formatCurrency(displaySubtotal)}
+${displayVat > 0 ? `VAT (${sale.vat_percentage || 0}%): ${formatCurrency(displayVat)}` : ''}
 ${sale.discount_amount > 0 ? `Discount: -${formatCurrency(sale.discount_amount)}` : ''}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Grand Total: ${formatCurrency(sale.total)}
@@ -476,11 +484,11 @@ Thank you for your business!`;
                     <div className="flex justify-between" style={{ margin: '1px 0' }}><span>Payment Status:</span><span>{paymentStatus()}</span></div>
                   </div>
                   <div className="text-black" style={{ fontSize: '7pt', lineHeight: '1.2' }}>
-                    <div className="flex justify-between" style={{ margin: '1px 0' }}><span>Subtotal:</span><span>{formatCurrency(sale.subtotal)}</span></div>
-                    {sale.vat_amount > 0 && (
+                    <div className="flex justify-between" style={{ margin: '1px 0' }}><span>Subtotal:</span><span>{formatCurrency(displaySubtotal)}</span></div>
+                    {displayVat > 0 && (
                       <div className="flex justify-between" style={{ margin: '1px 0' }}>
                         <span>{sale.vat_percentage > 0 ? `VAT (${sale.vat_percentage}%)` : 'VAT'}:</span>
-                        <span>{formatCurrency(sale.vat_amount || 0)}</span>
+                        <span>{formatCurrency(displayVat)}</span>
                       </div>
                     )}
                     <div className="flex justify-between" style={{ margin: '1px 0' }}><span>Total Discount:</span><span>{formatCurrency(sale.discount_amount || 0)}</span></div>

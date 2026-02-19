@@ -98,6 +98,14 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
     return num.toFixed(2);
   };
 
+  // VAT-inclusive display: ensure subtotal + VAT = total (e.g. total 10, 5% VAT → subtotal 9.52, VAT 0.48)
+  const totalNum = parseFloat(sale.total || 0);
+  const vatPct = parseFloat(sale.vat_percentage || 0);
+  const displaySubtotal = vatPct > 0 && totalNum > 0
+    ? Math.round((totalNum / (1 + vatPct / 100)) * 100) / 100
+    : parseFloat(sale.subtotal ?? 0);
+  const displayVat = vatPct > 0 && totalNum > 0 ? totalNum - displaySubtotal : parseFloat(sale.vat_amount ?? 0);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 flex flex-col max-h-[90vh]">
@@ -238,7 +246,7 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
                 <span className="receipt-label receipt-subtotal-label">SUB TOTAL</span>
                 <span className="receipt-spacer-rate"></span>
                 <span className="receipt-spacer-qty"></span>
-                <span className="receipt-value receipt-subtotal-value">{formatPrice(sale.subtotal)}</span>
+                <span className="receipt-value receipt-subtotal-value">{formatPrice(displaySubtotal)}</span>
               </div>
               <div className="receipt-divider-thick"></div>
               {sale.discount_amount > 0 && (
@@ -249,14 +257,14 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
                   <span className="receipt-value discount">-{formatPrice(sale.discount_amount)}</span>
                 </div>
               )}
-              {sale.vat_amount > 0 && (
+              {displayVat > 0 && (
                 <div className="receipt-row">
                   <span className="receipt-label">
                     {sale.vat_percentage > 0 ? `VAT (${sale.vat_percentage}%)` : 'VAT'}
                   </span>
                   <span className="receipt-spacer-rate"></span>
                   <span className="receipt-spacer-qty"></span>
-                  <span className="receipt-value">{formatPrice(sale.vat_amount)}</span>
+                  <span className="receipt-value">{formatPrice(displayVat)}</span>
                 </div>
               )}
               <div className="receipt-row receipt-total">

@@ -1,14 +1,15 @@
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
-// Use environment variable, or relative URL in production, or localhost in development
-const API_BASE_URL = import.meta.env.VITE_API_URL || 
-  (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+// Use /api so Vite proxy (dev) and same-origin (prod) avoid cross-origin network errors. Override with VITE_API_URL if needed.
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000,
 });
 
 // Add token to requests
@@ -29,6 +30,13 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Network error: no response (server down, CORS, or wrong URL)
+    const isNetworkError = !error.response && (error.code === 'ERR_NETWORK' || error.message === 'Network Error');
+    if (isNetworkError) {
+      toast.error('Cannot reach server. Make sure the backend is running (e.g. npm run server on port 5000).');
+      console.error('Network error:', error.message || error.code, error.config?.baseURL, error.config?.url);
+    }
+
     if (error.response?.status === 401) {
       // Don't redirect for public endpoints (like settings GET)
       const isPublicEndpoint = error.config?.url?.includes('/settings') && error.config?.method === 'get';

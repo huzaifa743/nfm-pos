@@ -30,8 +30,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password, tenantCode = '') => {
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_URL ||
-        (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
       const response = await axios.post(`${API_BASE_URL}/auth/login`, {
         username,
@@ -54,7 +53,10 @@ export const AuthProvider = ({ children }) => {
       toast.success('Login successful');
       return { success: true };
     } catch (error) {
-      const message = error.response?.data?.error || 'Login failed';
+      const isNetworkError = !error.response && (error.code === 'ERR_NETWORK' || error.message === 'Network Error');
+      const message = isNetworkError
+        ? 'Cannot reach server. Make sure the backend is running (e.g. npm run server).'
+        : (error.response?.data?.error || 'Login failed');
       toast.error(message);
       return { success: false, error: message };
     }
