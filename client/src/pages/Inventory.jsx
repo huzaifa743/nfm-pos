@@ -4,7 +4,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/api';
 import toast from 'react-hot-toast';
-import { Plus, Search, Edit, Trash2, X, Folder, FileDown, FileUp, FileText } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, X, Folder, FileDown, FileUp, FileText, Trash } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -104,6 +104,21 @@ export default function Inventory() {
     } catch (error) {
       console.error('Error deleting product:', error);
       toast.error(error.response?.data?.error || 'Failed to delete product');
+    }
+  };
+
+  const handleClearAllInventory = async () => {
+    if (!window.confirm('Are you sure you want to delete ALL products from inventory? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await api.delete('/products/all');
+      toast.success('All inventory cleared successfully');
+      fetchProducts();
+    } catch (error) {
+      console.error('Error clearing inventory:', error);
+      toast.error(error.response?.data?.error || 'Failed to clear inventory');
     }
   };
 
@@ -337,6 +352,15 @@ export default function Inventory() {
             <FileDown className="w-5 h-5" />
             {t('inventory.downloadTemplate')}
           </button>
+          {user?.role === 'admin' && (
+            <button
+              onClick={handleClearAllInventory}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+            >
+              <Trash className="w-5 h-5" />
+              {t('inventory.clearAllInventory')}
+            </button>
+          )}
           <button
             onClick={() => {
               setEditingProduct(null);

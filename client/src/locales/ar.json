@@ -85,7 +85,8 @@
     "importFailed": "فشل استيراد المخزون",
     "importEmpty": "لا توجد صفوف في ملف Excel",
     "importNoColumns": "لا توجد أعمدة معروفة في ملف Excel",
-    "importPartial": "تم الاستيراد مع بعض الأخطاء"
+    "importPartial": "تم الاستيراد مع بعض الأخطاء",
+    "clearAllInventory": "مسح كل المخزون"
   },
   "salesHistory": {
     "title": "سجل المبيعات",

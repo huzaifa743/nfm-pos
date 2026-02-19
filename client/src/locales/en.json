@@ -85,7 +85,8 @@
     "importFailed": "Inventory import failed",
     "importEmpty": "No rows found in the Excel file",
     "importNoColumns": "No recognizable columns found in the Excel file",
-    "importPartial": "Inventory imported with some errors"
+    "importPartial": "Inventory imported with some errors",
+    "clearAllInventory": "Clear All Inventory"
   },
   "salesHistory": {
     "title": "Sales History",

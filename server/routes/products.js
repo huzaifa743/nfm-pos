@@ -481,6 +481,17 @@ router.put('/:id', authenticateToken, preventDemoModifications, requireTenant, g
   }
 });
 
+// Delete all products (clear inventory)
+router.delete('/all', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
+  try {
+    const result = await req.db.run('DELETE FROM products');
+    res.json({ message: 'All inventory cleared successfully', deleted: result.changes });
+  } catch (error) {
+    console.error('Clear inventory error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Delete product
 router.delete('/:id', authenticateToken, preventDemoModifications, requireTenant, getTenantDb, closeTenantDb, async (req, res) => {
   try {
