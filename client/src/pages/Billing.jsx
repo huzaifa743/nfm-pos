@@ -7,7 +7,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { getImageURL } from '../utils/api';
 import api from '../api/api';
 import toast from 'react-hot-toast';
-import { getReceiptPrintStyles } from '../utils/receiptPrintStyles';
+import { getReceiptPrintStyles, getA4ReceiptPrintStyles } from '../utils/receiptPrintStyles';
 import {
   Plus,
   Minus,
@@ -52,9 +52,15 @@ export default function Billing() {
   
   const [discountAmount, setDiscountAmount] = useState(0);
   const [discountType, setDiscountType] = useState('fixed');
-  const [saleVatPercentage, setSaleVatPercentage] = useState(null);
+  const [saleVatPercentage, setSaleVatPercentage] = useState(() => {
+    const saved = localStorage.getItem('billing_saleVatPercentage');
+    if (saved !== null && saved !== '') {
+      const num = parseFloat(saved);
+      if (!Number.isNaN(num) && num >= 0) return num;
+    }
+    return null;
+  });
   const [noVat, setNoVat] = useState(() => {
-    // Load noVat preference from localStorage on mount
     const savedNoVat = localStorage.getItem('billing_noVat');
     return savedNoVat === 'true';
   });
@@ -1049,232 +1055,60 @@ export default function Billing() {
       toast.error('Receipt content not found');
       return;
     }
-    
-    // Create a hidden iframe for printing (doesn't open new window)
+    const wrapper = receiptContent.closest('.a4-scale-wrapper');
+    if (!wrapper) {
+      toast.error('Receipt structure not found');
+      return;
+    }
+    const receiptHTML = wrapper.outerHTML;
     const printFrame = document.createElement('iframe');
-    printFrame.style.position = 'fixed';
-    printFrame.style.right = '0';
-    printFrame.style.bottom = '0';
-    printFrame.style.width = '0';
-    printFrame.style.height = '0';
-    printFrame.style.border = '0';
-    printFrame.style.opacity = '0';
-    printFrame.style.pointerEvents = 'none';
+    printFrame.style.cssText = 'position:fixed;right:0;bottom:0;width:210mm;height:297mm;border:0;opacity:0;pointer-events:none;visibility:hidden;';
     document.body.appendChild(printFrame);
-    
     const printDoc = printFrame.contentDocument || printFrame.contentWindow.document;
     printDoc.open();
     printDoc.write(`
       <!DOCTYPE html>
-      <html>
+      <html lang="en">
         <head>
-          <title>Invoice</title>
           <meta charset="utf-8">
-          <style>
-            @page {
-              size: A4;
-              margin: 0;
-            }
-            
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-              color-adjust: exact !important;
-            }
-            
-            html {
-              width: 210mm;
-              height: 297mm;
-            }
-            
-            body {
-              margin: 0 !important;
-              padding: 0 !important;
-              width: 210mm !important;
-              height: 297mm !important;
-              background: white !important;
-              font-family: Arial, sans-serif !important;
-              font-size: 8pt !important;
-              line-height: 1.2 !important;
-              color: black !important;
-              overflow: hidden !important;
-            }
-            
-            .print-content {
-              width: 210mm !important;
-              height: 297mm !important;
-              padding: 8mm !important;
-              margin: 0 !important;
-              background: white !important;
-              color: black !important;
-              box-sizing: border-box !important;
-              display: block !important;
-              overflow: hidden !important;
-            }
-            
-            .print-content * {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-              color-adjust: exact !important;
-            }
-            
-            .print-content header {
-              margin-bottom: 4px !important;
-              padding-bottom: 4px !important;
-            }
-            
-            .print-content section {
-              margin-bottom: 4px !important;
-              padding-bottom: 2px !important;
-            }
-            
-            .print-content h1 {
-              font-size: 12pt !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              line-height: 1.1 !important;
-            }
-            
-            .print-content h2 {
-              font-size: 14pt !important;
-              margin: 0 0 2px 0 !important;
-              padding: 0 !important;
-              line-height: 1.1 !important;
-            }
-            
-            .print-content p {
-              font-size: 7pt !important;
-              margin: 1px 0 !important;
-              padding: 0 !important;
-              line-height: 1.1 !important;
-            }
-            
-            .print-content table {
-              border-collapse: collapse !important;
-              width: 100% !important;
-              margin: 2px 0 !important;
-              font-size: 7pt !important;
-            }
-            
-            .print-content th {
-              background-color: #1e40af !important;
-              color: white !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-              padding: 3px 4px !important;
-              font-weight: bold !important;
-              font-size: 7pt !important;
-              line-height: 1.1 !important;
-            }
-            
-            .print-content td {
-              padding: 2px 4px !important;
-              border-bottom: 1px solid #ddd !important;
-              font-size: 7pt !important;
-              line-height: 1.1 !important;
-            }
-            
-            .print-content footer {
-              margin-top: 4px !important;
-              padding-top: 4px !important;
-            }
-            
-            .print-content svg {
-              width: 60px !important;
-              height: 60px !important;
-            }
-            
-            .print-content img,
-            .print-content svg {
-              max-width: 100% !important;
-              height: auto !important;
-            }
-            
-            @media print {
-              @page {
-                size: A4;
-                margin: 0;
-              }
-              
-              html {
-                width: 210mm;
-                height: 297mm;
-              }
-              
-              html {
-                width: 210mm !important;
-                height: 297mm !important;
-              }
-              
-              body {
-                width: 210mm !important;
-                height: 297mm !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                font-size: 9pt !important;
-              }
-              
-              .print-content {
-                width: 210mm !important;
-                height: 297mm !important;
-                padding: 8mm !important;
-                margin: 0 !important;
-                page-break-inside: avoid !important;
-                transform: scale(1) !important;
-                zoom: 1 !important;
-                font-size: 8pt !important;
-              }
-              
-              .print-content * {
-                max-width: 100% !important;
-              }
-              
-              * {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-                color-adjust: exact !important;
-              }
-            }
-          </style>
+          <title>Invoice</title>
+          <style>${getA4ReceiptPrintStyles()}</style>
         </head>
-        <body>
-          <div class="print-content">
-            ${receiptContent.innerHTML}
-          </div>
-        </body>
+        <body style="width:210mm;min-width:210mm;overflow:hidden;margin:0;padding:0;">${receiptHTML}</body>
       </html>
     `);
     printDoc.close();
-    
-    // Wait for iframe to load, then print directly
-    printFrame.onload = () => {
+    let printed = false;
+    const doPrint = () => {
+      if (printed) return;
+      printed = true;
+      printFrame.contentWindow?.focus?.();
+      printFrame.contentWindow?.print?.();
       setTimeout(() => {
-        printFrame.contentWindow.focus();
-        printFrame.contentWindow.print();
-        // Remove iframe after printing
-        setTimeout(() => {
-          if (document.body.contains(printFrame)) {
-            document.body.removeChild(printFrame);
-          }
-        }, 1000);
-      }, 250);
+        if (document.body.contains(printFrame)) document.body.removeChild(printFrame);
+      }, 1000);
     };
-    
-    // Fallback if onload doesn't fire
-    setTimeout(() => {
-      if (printFrame.contentWindow) {
-        printFrame.contentWindow.focus();
-        printFrame.contentWindow.print();
-        setTimeout(() => {
-          if (document.body.contains(printFrame)) {
-            document.body.removeChild(printFrame);
-          }
-        }, 1000);
+    printFrame.onload = () => {
+      const doc = printFrame.contentDocument;
+      const promises = [];
+      if (typeof doc?.fonts?.ready?.then === 'function') promises.push(doc.fonts.ready);
+      const imgs = doc?.querySelectorAll?.('img') || [];
+      if (imgs.length) {
+        promises.push(Promise.race([
+          Promise.all(Array.from(imgs).map((img) => img.complete ? Promise.resolve() : new Promise((r) => { img.onload = img.onerror = r; }))),
+          new Promise((r) => setTimeout(r, 600))
+        ]));
       }
-    }, 500);
+      (promises.length ? Promise.all(promises) : Promise.resolve())
+        .then(() => setTimeout(doPrint, 80))
+        .catch(() => setTimeout(doPrint, 300));
+    };
+    if (printFrame.contentDocument?.readyState === 'complete') {
+      printFrame.onload();
+    } else {
+      printFrame.onload?.();
+    }
+    setTimeout(doPrint, 800);
   }
 
   const { subtotal, discount, vat, total, saleVatAmount } = calculateTotals();
@@ -1985,11 +1819,12 @@ export default function Billing() {
           noVAT={noVat}
           onClose={() => setShowVatModal(false)}
           onApply={(vatData) => {
-            setSaleVatPercentage(vatData.percentage || 0);
+            const newPct = vatData.percentage != null ? parseFloat(vatData.percentage) : 0;
             const newNoVat = !!vatData.noVat;
+            setSaleVatPercentage(newPct);
             setNoVat(newNoVat);
-            // Persist noVat preference to localStorage
             localStorage.setItem('billing_noVat', String(newNoVat));
+            localStorage.setItem('billing_saleVatPercentage', String(Number.isNaN(newPct) ? 0 : newPct));
             setShowVatModal(false);
             toast.success('VAT applied successfully');
           }}

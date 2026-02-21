@@ -385,9 +385,11 @@ router.post('/', authenticateToken, requireTenant, getTenantDb, closeTenantDb, a
       deliveryAssignedAt = deliveryBoyId ? new Date().toISOString() : null;
     }
 
-    // Sale date: use provided date (YYYY-MM-DD) or current time
+    // Sale date: use provided date (YYYY-MM-DD) with current time, or let DB use CURRENT_TIMESTAMP
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
     const createdAt = sale_date && typeof sale_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sale_date.trim())
-      ? `${sale_date.trim()} 12:00:00`
+      ? `${sale_date.trim()} ${timeStr}`
       : null;
 
     // Create sale (include created_at when sale_date provided)

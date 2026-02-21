@@ -21,8 +21,8 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
 
   const customer = {
     name: sale.customer_name || 'Walk-in Customer',
-    address: sale.customer_address || 'N.A.',
-    phone: sale.customer_phone || 'N.A.'
+    address: sale.customer_address || 'N/A',
+    phone: sale.customer_phone || 'N/A'
   };
 
   const INVOICE_BLUE = '#1e40af';
@@ -116,7 +116,7 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase())
     .replace(/Payafterdelivery/gi, 'Pay After Delivery')
-    .replace(/Cash/gi, 'Cash Sale');
+    .replace(/Cash Sale/gi, 'Cash');
 
   const saleType = paymentMethodLabel;
   
@@ -154,31 +154,42 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
     return name.substring(0, 2).toUpperCase();
   };
 
-  // QR Code data - formatted for best display when scanned
-  const qrData = `INVOICE DETAILS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Invoice No: ${invoice.number}
-Date: ${invoice.date}
-Time: ${invoice.time}
-Company: ${company.name}
-${company.address ? `Address: ${company.address}` : ''}
-${company.phone ? `Phone: ${company.phone}` : ''}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Customer: ${customer.name}
-${customer.phone !== 'N/A' ? `Phone: ${customer.phone}` : ''}
-${customer.address !== 'N/A' ? `Address: ${customer.address}` : ''}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Subtotal: ${formatCurrency(displaySubtotal)}
-${displayVat > 0 ? `VAT (${sale.vat_percentage || 0}%): ${formatCurrency(displayVat)}` : ''}
-${sale.discount_amount > 0 ? `Discount: -${formatCurrency(sale.discount_amount)}` : ''}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Grand Total: ${formatCurrency(sale.total)}
-Payment Method: ${paymentMethodLabel}
-Amount Paid: ${formatCurrency(sale.payment_amount || sale.total)}
-${sale.change_amount > 0 ? `Change: ${formatCurrency(sale.change_amount)}` : ''}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Items: ${totalQuantity} items
-Thank you for your business!`;
+  // QR Code data - ASCII only for reliable scanning, formatted for display when scanned
+  const amountsLine = [
+    `Subtotal:     ${formatCurrency(displaySubtotal)}`,
+    displayVat > 0 ? `VAT (${sale.vat_percentage || 0}%):  ${formatCurrency(displayVat)}` : null,
+    (sale.discount_amount || 0) > 0 ? `Discount:     -${formatCurrency(sale.discount_amount)}` : null,
+    `Grand Total:  ${formatCurrency(sale.total)}`,
+  ].filter(Boolean).join('\n   ');
+
+  const qrData = [
+    'INVOICE RECEIPT',
+    '-------------------',
+    'Invoice No: ' + invoice.number,
+    'Date: ' + invoice.date,
+    'Time: ' + invoice.time,
+    'User: ' + invoice.user,
+    '',
+    'STORE: ' + company.name,
+    'Location: ' + company.address,
+    'Phone: ' + company.phone,
+    '',
+    'BILL TO: ' + customer.name,
+    'Phone: ' + customer.phone,
+    'Address: ' + customer.address,
+    '',
+    'AMOUNTS',
+    amountsLine,
+    '',
+    'PAYMENT',
+    'Method: ' + paymentMethodLabel,
+    'Paid: ' + formatCurrency(sale.payment_amount || sale.total),
+    'Change: ' + formatCurrency(sale.change_amount || 0),
+    'Status: ' + paymentStatus(),
+    'Items: ' + totalQuantity,
+    '',
+    'Thank you for your business!'
+  ].join('\n');
 
   return (
     <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50 p-4 sm:p-6 receipt-modal-a4">
@@ -188,6 +199,7 @@ Thank you for your business!`;
         }
 
         @media print {
+          html { zoom: 1 !important; }
           @page {
             size: A4;
             margin: 0;
@@ -203,9 +215,9 @@ Thank you for your business!`;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
-            width: 100% !important;
-            height: auto !important;
-            overflow: visible !important;
+            width: 210mm !important;
+            min-width: 210mm !important;
+            overflow: hidden !important;
           }
 
           /* Hide everything except the receipt */
@@ -240,7 +252,7 @@ Thank you for your business!`;
 
           .receipt-preview-shell {
             max-height: none !important;
-            overflow: visible !important;
+            overflow: hidden !important;
             border: 0 !important;
             background: white !important;
             border-radius: 0 !important;
@@ -256,28 +268,31 @@ Thank you for your business!`;
           .a4-scale-wrapper {
             width: 210mm !important;
             min-height: 297mm !important;
+            max-width: 210mm !important;
             margin: 0 auto !important;
             padding: 0 !important;
             background: white !important;
             display: block !important;
             visibility: visible !important;
+            zoom: 1 !important;
           }
 
           .a4-sheet {
             width: 210mm !important;
             min-height: 297mm !important;
+            max-width: 210mm !important;
             transform: none !important;
             border: 0 !important;
             border-radius: 0 !important;
             box-shadow: none !important;
             margin: 0 auto !important;
-            padding: 15mm !important;
+            padding: 10mm !important;
             box-sizing: border-box !important;
             background: white !important;
             color: black !important;
             font-family: Arial, sans-serif !important;
-            font-size: 11pt !important;
-            line-height: 1.4 !important;
+            font-size: 9pt !important;
+            line-height: 1.2 !important;
             display: block !important;
             visibility: visible !important;
             page-break-after: auto !important;
@@ -311,13 +326,14 @@ Thank you for your business!`;
           .a4-sheet table {
             border-collapse: collapse !important;
             width: 100% !important;
+            table-layout: auto !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
           .a4-sheet th,
           .a4-sheet td {
-            padding: 8px !important;
+            padding: 8px 8px !important;
             text-align: left !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
@@ -359,11 +375,11 @@ Thank you for your business!`;
           </button>
         </div>
 
-        <div className="receipt-preview-shell bg-white border border-gray-200 rounded-xl shadow-xl max-h-[88vh] overflow-auto p-3 sm:p-4">
-          <div className="a4-scale-wrapper mx-auto" style={{ 
+        <div className="receipt-preview-shell bg-white border border-gray-200 rounded-xl shadow-xl max-h-[90vh] overflow-auto p-2 sm:p-3 flex justify-center items-start" style={{ scrollbarGutter: 'stable' }}>
+          <div className="a4-scale-wrapper" style={{ 
             width: '210mm', 
             minHeight: '297mm',
-            maxWidth: '210mm',
+            flexShrink: 0,
             aspectRatio: '210/297'
           }}>
             <div
@@ -371,71 +387,89 @@ Thank you for your business!`;
               className="a4-sheet bg-white text-gray-900"
               style={{
                 width: '210mm',
-                height: '297mm',
-                padding: '8mm',
+                minHeight: '297mm',
+                padding: '10mm',
                 fontFamily: 'Arial, sans-serif',
                 boxSizing: 'border-box',
-                fontSize: '8pt',
-                lineHeight: '1.2',
+                fontSize: '9pt',
+                lineHeight: '1.3',
               }}
             >
-              {/* Header: Logo + Company left | TAX INVOICE + details right */}
-              <header className="flex justify-between items-start" style={{ marginBottom: '4px', paddingBottom: '4px' }}>
-                <div className="flex items-center gap-1.5">
+              {/* Header: Logo + Company left | INVOICE + details right */}
+              <header className="flex justify-between items-start" style={{ marginBottom: '8px', paddingBottom: '6px' }}>
+                <div className="flex items-center gap-3">
                   <div
-                    className="w-8 h-8 flex items-center justify-center flex-shrink-0 text-white font-bold"
-                    style={{ backgroundColor: INVOICE_BLUE, fontSize: '10pt' }}
+                    className="flex items-center justify-center flex-shrink-0 text-white font-bold rounded-full overflow-hidden"
+                    style={{
+                      width: '48px',
+                      height: '48px',
+                      backgroundColor: company.logo ? '#f8fafc' : INVOICE_BLUE,
+                      fontSize: '14pt',
+                      borderRadius: '50%',
+                      border: company.logo ? '1px solid #e2e8f0' : 'none',
+                    }}
                   >
                     {company.logo ? (
-                      <img src={company.logo} alt="Logo" className="w-full h-full object-contain" style={{ padding: '2px' }} />
+                      <img
+                        src={company.logo}
+                        alt="Logo"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                          padding: '4px',
+                          boxSizing: 'border-box',
+                        }}
+                      />
                     ) : (
                       getCompanyInitials()
                     )}
                   </div>
                   <div>
-                    <h1 className="font-bold uppercase" style={{ color: INVOICE_BLUE, fontSize: '12pt', margin: 0, padding: 0, lineHeight: '1.1' }}>{company.name}</h1>
-                    <p className="text-black" style={{ fontSize: '7pt', margin: '1px 0', padding: 0, lineHeight: '1.1' }}>{company.address}</p>
-                    <p className="text-black" style={{ fontSize: '7pt', margin: '1px 0', padding: 0, lineHeight: '1.1' }}>{company.phone}</p>
-                    <p className="text-black" style={{ fontSize: '7pt', margin: '2px 0 0 0', padding: 0, lineHeight: '1.1' }}>Sale Type: {saleType}</p>
+                    <h1 className="font-bold uppercase" style={{ color: INVOICE_BLUE, fontSize: '16pt', margin: 0, padding: 0, lineHeight: '1.2' }}>{company.name}</h1>
+                    <p className="text-black" style={{ fontSize: '9pt', margin: '2px 0', padding: 0, lineHeight: '1.3' }}>Location: {company.address}</p>
+                    <p className="text-black" style={{ fontSize: '9pt', margin: '2px 0', padding: 0, lineHeight: '1.3' }}>{company.phone}</p>
+                    {company.trn && (
+                      <p className="text-black" style={{ fontSize: '9pt', margin: '2px 0', padding: 0, lineHeight: '1.3' }}>TRN: {company.trn}</p>
+                    )}
+                    <p className="text-black" style={{ fontSize: '9pt', margin: '2px 0 0 0', padding: 0, lineHeight: '1.3' }}>Sale Type: {saleType}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <h2 className="font-bold uppercase" style={{ color: INVOICE_BLUE, fontSize: '14pt', margin: '0 0 2px 0', padding: 0, lineHeight: '1.1' }}>TAX INVOICE</h2>
-                  <div className="text-black" style={{ fontSize: '7pt', lineHeight: '1.1' }}>
-                    <p style={{ margin: '0.5px 0', padding: 0 }}>Invoice No: {invoice.number}</p>
-                    <p style={{ margin: '0.5px 0', padding: 0 }}>Invoice Date: {invoice.date}</p>
-                    <p style={{ margin: '0.5px 0', padding: 0 }}>Time: {invoice.time}</p>
-                    <p style={{ margin: '0.5px 0', padding: 0 }}>User: {invoice.user}</p>
+                  <h2 className="font-bold uppercase" style={{ color: INVOICE_BLUE, fontSize: '16pt', margin: '0 0 4px 0', padding: 0, lineHeight: '1.2' }}>TAX INVOICE</h2>
+                  <div className="text-black" style={{ fontSize: '9pt', lineHeight: '1.4' }}>
+                    <p style={{ margin: '2px 0', padding: 0 }}>Invoice No: {invoice.number}</p>
+                    <p style={{ margin: '2px 0', padding: 0 }}>Invoice Date: {invoice.date}</p>
+                    <p style={{ margin: '2px 0', padding: 0 }}>Time: {invoice.time}</p>
+                    <p style={{ margin: '2px 0', padding: 0 }}>User: {invoice.user}</p>
                   </div>
                 </div>
               </header>
 
               {/* BILL TO: Customer (bold+underline) | Phone / Address right */}
-              <section className="border-b border-gray-300" style={{ marginBottom: '4px', paddingBottom: '2px' }}>
+              <section className="border-b border-gray-300" style={{ marginBottom: '6px', paddingBottom: '4px' }}>
                 <div className="flex justify-between items-baseline">
-                  <p className="text-black" style={{ fontSize: '7pt', margin: 0, padding: 0, lineHeight: '1.1' }}>
+                  <p className="text-black" style={{ fontSize: '9pt', margin: 0, padding: 0, lineHeight: '1.3' }}>
                     <span className="font-semibold">BILL TO: </span>
-                    <span className="font-bold underline">
-                      {customer.name} {customer.name === 'Walk-in Customer' ? '(Walk-In)' : ''}
-                    </span>
+                    <span className="font-bold underline">{customer.name}</span>
                   </p>
-                  <p className="text-black" style={{ fontSize: '7pt', margin: 0, padding: 0, lineHeight: '1.1' }}>
-                    Phone: {customer.phone}  Address: {customer.address}
+                  <p className="text-black" style={{ fontSize: '9pt', margin: 0, padding: 0, lineHeight: '1.3' }}>
+                    Phone: {customer.phone} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Address: {customer.address}
                   </p>
                 </div>
               </section>
 
-              {/* Items Table - dark blue header */}
-              <section style={{ marginBottom: '4px' }}>
-                <table className="w-full border-collapse" style={{ fontSize: '7pt', margin: '2px 0', width: '100%' }}>
+              {/* Items Table - dark blue header, full width, spacious row spacing */}
+              <section style={{ marginTop: '10px', marginBottom: '8px', width: '100%' }}>
+                <table className="w-full border-collapse" style={{ fontSize: '10pt', margin: '2px 0', width: '100%', tableLayout: 'auto' }}>
                   <thead>
                     <tr style={{ backgroundColor: INVOICE_BLUE, color: 'white' }}>
-                      <th className="text-left font-semibold" style={{ padding: '3px 4px', fontSize: '7pt', lineHeight: '1.1' }}>Sr. No.</th>
-                      <th className="text-left font-semibold" style={{ padding: '3px 4px', fontSize: '7pt', lineHeight: '1.1' }}>Item Description</th>
-                      <th className="text-right font-semibold" style={{ padding: '3px 4px', fontSize: '7pt', lineHeight: '1.1' }}>Unit Price</th>
-                      <th className="text-right font-semibold" style={{ padding: '3px 4px', fontSize: '7pt', lineHeight: '1.1' }}>Discount</th>
-                      <th className="text-right font-semibold" style={{ padding: '3px 4px', fontSize: '7pt', lineHeight: '1.1' }}>Qty</th>
-                      <th className="text-right font-semibold" style={{ padding: '3px 4px', fontSize: '7pt', lineHeight: '1.1' }}>Total</th>
+                      <th className="text-left font-semibold" style={{ padding: '6px 8px', fontSize: '10pt', lineHeight: '1.3', width: '8%', whiteSpace: 'nowrap' }}>Sr. No:</th>
+                      <th className="text-left font-semibold" style={{ padding: '6px 8px', fontSize: '10pt', lineHeight: '1.3', width: '38%' }}>Item Description</th>
+                      <th className="text-right font-semibold" style={{ padding: '6px 8px', fontSize: '10pt', lineHeight: '1.3', width: '14%' }}>Unit Price</th>
+                      <th className="text-right font-semibold" style={{ padding: '6px 8px', fontSize: '10pt', lineHeight: '1.3', width: '12%' }}>Discount</th>
+                      <th className="text-right font-semibold" style={{ padding: '6px 8px', fontSize: '10pt', lineHeight: '1.3', width: '10%' }}>Qty</th>
+                      <th className="text-right font-semibold" style={{ padding: '6px 8px', fontSize: '10pt', lineHeight: '1.3', width: '18%' }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -455,79 +489,85 @@ Thank you for your business!`;
                       }
                       return (
                         <tr key={item.id || index} className="border-b border-gray-200">
-                          <td className="text-black" style={{ padding: '2px 4px', fontSize: '7pt', lineHeight: '1.1' }}>{index + 1}</td>
-                          <td className="text-black" style={{ padding: '2px 4px', fontSize: '7pt', lineHeight: '1.1' }}>
+                          <td className="text-black" style={{ padding: '8px 8px', fontSize: '10pt', lineHeight: '1.35' }}>{index + 1}</td>
+                          <td className="text-black" style={{ padding: '8px 8px', fontSize: '10pt', lineHeight: '1.35' }}>
                             {baseProductName}
-                            {unitConversionText && <div className="text-gray-600" style={{ fontSize: '6pt', marginTop: '1px', lineHeight: '1.1' }}>{unitConversionText}</div>}
+                            {unitConversionText && <div className="text-gray-600" style={{ fontSize: '9pt', marginTop: '2px', lineHeight: '1.3' }}>{unitConversionText}</div>}
                           </td>
-                          <td className="text-right text-black" style={{ padding: '2px 4px', fontSize: '7pt', lineHeight: '1.1' }}>{formatCurrency(item.unit_price)}</td>
-                          <td className="text-right text-black" style={{ padding: '2px 4px', fontSize: '7pt', lineHeight: '1.1' }}>0.00</td>
-                          <td className="text-right text-black" style={{ padding: '2px 4px', fontSize: '7pt', lineHeight: '1.1' }}>
+                          <td className="text-right text-black" style={{ padding: '8px 8px', fontSize: '10pt', lineHeight: '1.35' }}>{formatCurrency(item.unit_price)}</td>
+                          <td className="text-right text-black" style={{ padding: '8px 8px', fontSize: '10pt', lineHeight: '1.35' }}>0.00</td>
+                          <td className="text-right text-black" style={{ padding: '8px 8px', fontSize: '10pt', lineHeight: '1.35' }}>
                             {hasUnitConversionFields ? `${parseFloat(item.display_quantity).toFixed(4).replace(/\.?0+$/, '')} ${item.selected_unit}` : item.quantity}
                           </td>
-                          <td className="text-right text-black font-medium" style={{ padding: '2px 4px', fontSize: '7pt', lineHeight: '1.1' }}>{formatCurrency(item.total_price)}</td>
+                          <td className="text-right text-black font-medium" style={{ padding: '8px 8px', fontSize: '10pt', lineHeight: '1.35' }}>{formatCurrency(item.total_price)}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-                <div className="text-right text-black" style={{ fontSize: '7pt', marginTop: '1px', lineHeight: '1.1' }}>Total Quantity: {totalQuantity}</div>
+                <div className="text-right text-black" style={{ fontSize: '11pt', marginTop: '4px', lineHeight: '1.3' }}>Total Quantity: {totalQuantity}</div>
               </section>
 
-              {/* Payment Summary: Left column | Right column with Grand Total in blue bar */}
-              <section style={{ marginBottom: '4px' }}>
-                <div className="grid grid-cols-2" style={{ gap: '12px' }}>
-                  <div className="text-black" style={{ fontSize: '7pt', lineHeight: '1.2' }}>
-                    <div className="flex justify-between" style={{ margin: '1px 0' }}><span>Payment Method:</span><span>{paymentMethodLabel}</span></div>
-                    <div className="flex justify-between" style={{ margin: '1px 0' }}><span>Amount Paid:</span><span>{formatCurrency(sale.payment_amount || sale.total)}</span></div>
-                    <div className="flex justify-between" style={{ margin: '1px 0' }}><span>Amount Return:</span><span>{formatCurrency(sale.change_amount || 0)}</span></div>
-                    <div className="flex justify-between" style={{ margin: '1px 0' }}><span>Payment Status:</span><span>{paymentStatus()}</span></div>
+              {/* Payment Summary: Left column (Payment) | Right column (Totals) */}
+              <section style={{ marginBottom: '10px', marginTop: '4px' }}>
+                <div className="grid grid-cols-2" style={{ gap: '24px', alignItems: 'stretch' }}>
+                  {/* Payment Details */}
+                  <div className="text-black" style={{ fontSize: '10pt', lineHeight: '1.5', padding: '10px 12px', backgroundColor: '#f8fafc', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                    <div className="flex justify-between" style={{ margin: '6px 0' }}><span>Payment Method:</span><span>{paymentMethodLabel}</span></div>
+                    <div className="flex justify-between" style={{ margin: '6px 0' }}><span>Amount Paid:</span><span>{formatCurrency(sale.payment_amount || sale.total)}</span></div>
+                    <div className="flex justify-between" style={{ margin: '6px 0' }}><span>Amount Return:</span><span>{formatCurrency(sale.change_amount || 0)}</span></div>
+                    <div className="flex justify-between" style={{ margin: '6px 0' }}><span>Payment Status:</span><span>{paymentStatus()}</span></div>
                   </div>
-                  <div className="text-black" style={{ fontSize: '7pt', lineHeight: '1.2' }}>
-                    <div className="flex justify-between" style={{ margin: '1px 0' }}><span>Subtotal:</span><span>{formatCurrency(displaySubtotal)}</span></div>
+                  {/* Financial Summary */}
+                  <div className="text-black" style={{ fontSize: '10pt', lineHeight: '1.5', padding: '10px 12px', backgroundColor: '#f8fafc', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                    <div className="flex justify-between" style={{ margin: '6px 0' }}><span>Subtotal:</span><span>{formatCurrency(displaySubtotal)}</span></div>
                     {displayVat > 0 && (
-                      <div className="flex justify-between" style={{ margin: '1px 0' }}>
+                      <div className="flex justify-between" style={{ margin: '6px 0' }}>
                         <span>{sale.vat_percentage > 0 ? `VAT (${sale.vat_percentage}%)` : 'VAT'}:</span>
                         <span>{formatCurrency(displayVat)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between" style={{ margin: '1px 0' }}><span>Total Discount:</span><span>{formatCurrency(sale.discount_amount || 0)}</span></div>
-                    <div className="flex justify-between mt-1 text-white font-bold rounded" style={{ backgroundColor: INVOICE_BLUE, marginTop: '2px', padding: '4px 6px' }}>
-                      <span style={{ fontSize: '8pt' }}>Grand Total:</span>
-                      <span style={{ fontSize: '8pt' }}>{formatCurrency(sale.total)}</span>
+                    <div className="flex justify-between" style={{ margin: '6px 0' }}><span>Total Discount:</span><span>{formatCurrency(sale.discount_amount || 0)}</span></div>
+                    <div className="flex justify-between text-white font-bold" style={{ backgroundColor: INVOICE_BLUE, marginTop: '8px', padding: '8px 10px', borderRadius: '4px', fontSize: '11pt' }}>
+                      <span>Grand Total:</span>
+                      <span>{formatCurrency(sale.total)}</span>
                     </div>
                   </div>
                 </div>
               </section>
 
-              {/* Amount in Words + Note */}
-              <section style={{ marginBottom: '4px', fontSize: '7pt', lineHeight: '1.2' }}>
-                <p className="text-black" style={{ margin: '1px 0', padding: 0 }}><span className="font-semibold">Amount in Words:</span> {amountInWords}</p>
+              {/* Amount in Words */}
+              <section style={{ marginBottom: '4px', fontSize: '9pt', lineHeight: '1.35' }}>
+                <p className="text-black" style={{ margin: '2px 0', padding: 0 }}><span className="font-semibold">Amount In Words:</span> {amountInWords}</p>
+              </section>
+
+              {/* Note */}
+              <section style={{ marginBottom: '8px', fontSize: '9pt', lineHeight: '1.35' }}>
                 <p className="text-black" style={{ margin: '2px 0', padding: 0 }}>Note: {settings?.terms_conditions || 'All sales are final. Thank you for your purchase! Please check items before leaving the store.'}</p>
               </section>
 
-              {/* Thank you */}
-              <p className="text-center font-bold text-black" style={{ fontSize: '8pt', margin: '4px 0', lineHeight: '1.2' }}>Thank you for your business!</p>
-
-              {/* Footer: Signatures + QR center | Receipt generated (no Software by) */}
-              <footer style={{ marginTop: '4px' }}>
-                <div className="flex justify-between items-end" style={{ marginBottom: '4px' }}>
-                  <div>
-                    <div className="border-t-2 border-gray-400 pt-0.5" style={{ width: '100px' }} />
-                    <p className="text-black" style={{ fontSize: '6pt', marginTop: '1px', lineHeight: '1.1' }}>Authorized Signature</p>
-                  </div>
-                  <div className="flex justify-center">
-                    <QRCodeSVG value={qrData} size={60} />
-                  </div>
-                  <div className="text-right">
-                    <div className="border-t-2 border-gray-400 pt-0.5 ml-auto" style={{ width: '100px', marginLeft: 'auto' }} />
-                    <p className="text-black" style={{ fontSize: '6pt', marginTop: '1px', lineHeight: '1.1' }}>Customer Signature</p>
-                  </div>
+              {/* QR code with signatures on left and right */}
+              <div className="flex justify-between items-end" style={{ marginTop: '16px', marginBottom: '16px', gap: '16px' }}>
+                <div className="flex flex-col items-center">
+                  <div className="border-t-2 border-gray-400" style={{ width: '100px', marginTop: '2px' }} />
+                  <p className="text-black" style={{ fontSize: '8pt', marginTop: '4px', lineHeight: '1.1' }}>Authorized Signature</p>
                 </div>
-                <p className="text-center text-black" style={{ fontSize: '6pt', margin: 0, padding: 0, lineHeight: '1.1' }}>
-                  Receipt Generated by: {company.name} | Print Date: {invoice.date} {invoice.time}
-                </p>
-              </footer>
+                <div className="flex flex-col items-center">
+                  <div style={{ padding: '16px', backgroundColor: '#fff', border: '1px solid #e5e7eb' }}>
+                    <QRCodeSVG value={qrData} size={128} level="L" marginSize={4} />
+                  </div>
+                  <p className="text-center font-bold text-black" style={{ fontSize: '11pt', margin: '12px 0 0 0', paddingBottom: '8px', borderBottom: '1px solid #000', lineHeight: '1.2' }}>Thank you for your business!</p>
+                </div>
+                <div className="flex flex-col items-center">
+                  <div className="border-t-2 border-gray-400" style={{ width: '100px', marginTop: '2px' }} />
+                  <p className="text-black" style={{ fontSize: '8pt', marginTop: '4px', lineHeight: '1.1' }}>Customer Signature</p>
+                </div>
+              </div>
+
+              {/* Receipt info */}
+              <p className="text-center text-black" style={{ fontSize: '9pt', margin: '4px 0 8px 0', padding: 0, lineHeight: '1.2' }}>
+                Receipt Generated by: {company.name} | Print Date: {invoice.date} {invoice.time}
+              </p>
             </div>
           </div>
         </div>
