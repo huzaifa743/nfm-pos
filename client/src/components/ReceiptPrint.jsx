@@ -160,7 +160,9 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
                   {settings.restaurant_email && <span>{settings.restaurant_email}</span>}
                 </div>
               )}
-              <p className="receipt-tax">Tax Invoice</p>
+              {settings.display_tax_invoice !== 'false' && (
+                <p className="receipt-tax">Tax Invoice</p>
+              )}
               {settings.trn && (
                 <p className="receipt-trn">TRN: {settings.trn}</p>
               )}

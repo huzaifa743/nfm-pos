@@ -26,9 +26,7 @@ export default function Settings() {
     receipt_auto_print: 'false',
     receipt_paper_size: '80mm',
     invoice_type: 'thermal',
-    terms_conditions: '',
-    bank_details: '',
-    account_holder: '',
+    display_tax_invoice: 'true',
   });
 
   const [logoPreview, setLogoPreview] = useState(null);
@@ -269,41 +267,6 @@ export default function Settings() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Terms and Conditions
-              </label>
-              <textarea
-                value={settings.terms_conditions || ''}
-                onChange={(e) => handleInputChange('terms_conditions', e.target.value)}
-                rows="3"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bank Details
-              </label>
-              <textarea
-                value={settings.bank_details || ''}
-                onChange={(e) => handleInputChange('bank_details', e.target.value)}
-                rows="3"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Account Holder
-              </label>
-              <input
-                type="text"
-                value={settings.account_holder || ''}
-                onChange={(e) => handleInputChange('account_holder', e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
           </div>
         </div>
 
@@ -368,6 +331,23 @@ export default function Settings() {
                 <option value="thermal">Thermal</option>
                 <option value="A4">A4</option>
               </select>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.display_tax_invoice !== 'false'}
+                  onChange={(e) => handleInputChange('display_tax_invoice', e.target.checked ? 'true' : 'false')}
+                  className="w-5 h-5 text-primary-600 rounded focus:ring-primary-500"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  Display &quot;TAX INVOICE&quot; on receipt
+                </span>
+              </label>
+              <p className="text-xs text-gray-500 mt-1 ml-8">
+                When disabled, &quot;TAX INVOICE&quot; will not appear on invoices (both A4 and thermal)
+              </p>
             </div>
           </div>
         </div>

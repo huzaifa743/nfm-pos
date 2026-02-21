@@ -436,7 +436,9 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <h2 className="font-bold uppercase" style={{ color: INVOICE_BLUE, fontSize: '16pt', margin: '0 0 4px 0', padding: 0, lineHeight: '1.2' }}>TAX INVOICE</h2>
+                  {settings?.display_tax_invoice !== 'false' && (
+                    <h2 className="font-bold uppercase" style={{ color: INVOICE_BLUE, fontSize: '16pt', margin: '0 0 4px 0', padding: 0, lineHeight: '1.2' }}>TAX INVOICE</h2>
+                  )}
                   <div className="text-black" style={{ fontSize: '9pt', lineHeight: '1.4' }}>
                     <p style={{ margin: '2px 0', padding: 0 }}>Invoice No: {invoice.number}</p>
                     <p style={{ margin: '2px 0', padding: 0 }}>Invoice Date: {invoice.date}</p>
@@ -543,7 +545,7 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
 
               {/* Note */}
               <section style={{ marginBottom: '8px', fontSize: '9pt', lineHeight: '1.35' }}>
-                <p className="text-black" style={{ margin: '2px 0', padding: 0 }}>Note: {settings?.terms_conditions || 'All sales are final. Thank you for your purchase! Please check items before leaving the store.'}</p>
+                <p className="text-black" style={{ margin: '2px 0', padding: 0 }}>Note: All sales are final. Thank you for your purchase! Please check items before leaving the store.</p>
               </section>
 
               {/* QR code with signatures on left and right */}
