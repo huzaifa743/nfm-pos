@@ -24,10 +24,11 @@ export default function Superadmin() {
   const [tenants, setTenants] = useState([]);
   const [adminForm, setAdminForm] = useState({ username: '', password: '', full_name: '', email: '' });
   const [editingAdminId, setEditingAdminId] = useState(null);
-  const [adminEditForm, setAdminEditForm] = useState({ username: '', password: '' });
+  const [adminEditForm, setAdminEditForm] = useState({ username: '', password: '', full_name: '', email: '' });
   const [ownerCredForm, setOwnerCredForm] = useState({ tenant_id: '', username: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [showCreateAdminModal, setShowCreateAdminModal] = useState(false);
+  const [showEditAdminModal, setShowEditAdminModal] = useState(false);
   const [showOwnerCredModal, setShowOwnerCredModal] = useState(false);
 
   useEffect(() => {
@@ -92,19 +93,22 @@ export default function Superadmin() {
   const handleUpdateAdmin = async (e) => {
     e.preventDefault();
     if (!editingAdminId) return;
-    if (!adminEditForm.username && !adminEditForm.password) {
-      toast.error('Enter username and/or password');
+    if (!adminEditForm.username.trim()) {
+      toast.error('Username is required');
       return;
     }
     setLoading(true);
     try {
       await api.put(`/superadmin/admins/${editingAdminId}`, {
-        username: adminEditForm.username || undefined,
-        password: adminEditForm.password || undefined
+        username: adminEditForm.username.trim(),
+        password: adminEditForm.password || undefined,
+        full_name: adminEditForm.full_name?.trim() || undefined,
+        email: adminEditForm.email?.trim() || undefined
       });
       toast.success('Admin updated');
       setEditingAdminId(null);
-      setAdminEditForm({ username: '', password: '' });
+      setAdminEditForm({ username: '', password: '', full_name: '', email: '' });
+      setShowEditAdminModal(false);
       fetchAdmins();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to update');
@@ -253,35 +257,24 @@ export default function Superadmin() {
                       <td className="px-4 py-2 text-sm text-gray-600">{a.full_name || '—'}</td>
                       <td className="px-4 py-2 text-sm text-gray-600">{a.email || '—'}</td>
                       <td className="px-4 py-2">
-                        {editingAdminId === a.id ? (
-                          <form onSubmit={handleUpdateAdmin} className="flex flex-wrap gap-2 items-end">
-                            <input
-                              type="text"
-                              value={adminEditForm.username}
-                              onChange={(e) => setAdminEditForm((f) => ({ ...f, username: e.target.value }))}
-                              className="w-32 px-2 py-1 border rounded text-sm"
-                              placeholder="Username"
-                            />
-                            <input
-                              type="password"
-                              value={adminEditForm.password}
-                              onChange={(e) => setAdminEditForm((f) => ({ ...f, password: e.target.value }))}
-                              className="w-32 px-2 py-1 border rounded text-sm"
-                              placeholder="New password"
-                            />
-                            <button type="submit" disabled={loading} className="text-sm px-2 py-1 bg-green-600 text-white rounded">Save</button>
-                            <button type="button" onClick={() => { setEditingAdminId(null); setAdminEditForm({ username: '', password: '' }); }} className="text-sm px-2 py-1 bg-gray-200 rounded">Cancel</button>
-                          </form>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => { setEditingAdminId(a.id); setAdminEditForm({ username: a.username, password: '' }); }}
-                              className="p-1.5 text-primary-600 hover:text-primary-800 hover:bg-primary-50 rounded"
-                              title="Edit"
-                            >
-                              <Pencil className="w-5 h-5" />
-                            </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingAdminId(a.id);
+                              setAdminEditForm({
+                                username: a.username || '',
+                                password: '',
+                                full_name: a.full_name || '',
+                                email: a.email || ''
+                              });
+                              setShowEditAdminModal(true);
+                            }}
+                            className="p-1.5 text-primary-600 hover:text-primary-800 hover:bg-primary-50 rounded"
+                            title="Edit"
+                          >
+                            <Pencil className="w-5 h-5" />
+                          </button>
                             <button
                               type="button"
                               onClick={async () => {
@@ -298,9 +291,8 @@ export default function Superadmin() {
                               title="Delete"
                             >
                               <Trash2 className="w-5 h-5" />
-                            </button>
-                          </div>
-                        )}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -368,6 +360,74 @@ export default function Superadmin() {
                     <button
                       type="button"
                       onClick={() => { setShowCreateAdminModal(false); setAdminForm({ username: '', password: '', full_name: '', email: '' }); }}
+                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Edit admin modal (full edit, same fields as create) */}
+          {showEditAdminModal && editingAdminId && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+                <h3 className="text-xl font-bold text-gray-800 mb-4">Edit admin</h3>
+                <form onSubmit={handleUpdateAdmin} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+                    <input
+                      type="text"
+                      required
+                      value={adminEditForm.username}
+                      onChange={(e) => setAdminEditForm((f) => ({ ...f, username: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      placeholder="Username"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">New password</label>
+                    <input
+                      type="password"
+                      value={adminEditForm.password}
+                      onChange={(e) => setAdminEditForm((f) => ({ ...f, password: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      placeholder="Leave empty to keep current"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Full name</label>
+                    <input
+                      type="text"
+                      value={adminEditForm.full_name}
+                      onChange={(e) => setAdminEditForm((f) => ({ ...f, full_name: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      placeholder="Full name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={adminEditForm.email}
+                      onChange={(e) => setAdminEditForm((f) => ({ ...f, email: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      placeholder="Email"
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                    >
+                      Update admin
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowEditAdminModal(false); setEditingAdminId(null); setAdminEditForm({ username: '', password: '', full_name: '', email: '' }); }}
                       className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                     >
                       Cancel

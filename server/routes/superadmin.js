@@ -95,10 +95,10 @@ router.post('/admins', async (req, res) => {
   }
 });
 
-// PUT /api/superadmin/admins/:id — update platform admin username/password
+// PUT /api/superadmin/admins/:id — update platform admin (username, password, full_name, email)
 router.put('/admins/:id', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, full_name, email } = req.body;
     const admin = await masterDbHelpers.get('SELECT id FROM admins WHERE id = ?', [req.params.id]);
     if (!admin) {
       return res.status(404).json({ error: 'Admin not found' });
@@ -113,8 +113,16 @@ router.put('/admins/:id', async (req, res) => {
       updates.push('password = ?');
       values.push(await bcrypt.hash(password, 10));
     }
+    if (full_name !== undefined) {
+      updates.push('full_name = ?');
+      values.push(full_name || null);
+    }
+    if (email !== undefined) {
+      updates.push('email = ?');
+      values.push(email || null);
+    }
     if (updates.length === 0) {
-      return res.status(400).json({ error: 'Provide username and/or password to update' });
+      return res.status(400).json({ error: 'Provide at least one field to update' });
     }
     updates.push('updated_at = CURRENT_TIMESTAMP');
     values.push(req.params.id);
