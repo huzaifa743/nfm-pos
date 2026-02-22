@@ -1,3 +1,9 @@
 git add .
-git commit -m "Adjusted and rearrange the Settings Section Layout"
+git commit -m "Add admin/superadmin system with tenant approval and credentials
+
+- Platform admin role: view tenants, change status, create tenants (pending approval)
+- Super admin: activity log, approve/reject tenants, manage admins and tenant owner credentials
+- Credentials: Create admin and Update tenant owner credentials in modals
+- Super admin password/username change in Settings (Options)
+- Platform admins table: Edit/Delete as icon buttons"
 git push origin main

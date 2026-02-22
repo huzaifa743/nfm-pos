@@ -12,6 +12,7 @@ import Reports from './pages/Reports';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
 import Tenants from './pages/Tenants';
+import Superadmin from './pages/Superadmin';
 import Deliveries from './pages/Deliveries';
 import DeliveryBoys from './pages/DeliveryBoys';
 import EmployeesAndSalaries from './pages/EmployeesAndSalaries';
@@ -39,7 +40,8 @@ function PrivateRoute({ children }) {
 
 function IndexRedirect() {
   const { user } = useAuth();
-  return <Navigate to={user?.role === 'super_admin' ? '/tenants' : '/dashboard'} replace />;
+  const goToTenants = user?.role === 'super_admin' || (user?.role === 'admin' && !user?.tenant_code);
+  return <Navigate to={goToTenants ? '/tenants' : '/dashboard'} replace />;
 }
 
 function AppRoutes() {
@@ -63,6 +65,7 @@ function AppRoutes() {
         <Route path="users" element={<Users />} />
         <Route path="settings" element={<Settings />} />
         <Route path="tenants" element={<Tenants />} />
+        <Route path="superadmin" element={<Superadmin />} />
         <Route path="deliveries" element={<Deliveries />} />
         <Route path="delivery-boys" element={<DeliveryBoys />} />
         <Route path="employees" element={<EmployeesAndSalaries />} />

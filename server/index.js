@@ -158,7 +158,8 @@ app.use('/uploads', express.static(uploadsBasePath, {
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/setup', require('./routes/setup')); // Setup endpoints
-app.use('/api/tenants', require('./routes/tenants')); // Tenant management (super admin only)
+app.use('/api/tenants', require('./routes/tenants')); // Tenant management (super_admin + admin)
+app.use('/api/superadmin', require('./routes/superadmin')); // Superadmin: activity, credentials, admins
 app.use('/api/products', require('./routes/products'));
 app.use('/api/categories', require('./routes/categories'));
 app.use('/api/sales', require('./routes/sales'));

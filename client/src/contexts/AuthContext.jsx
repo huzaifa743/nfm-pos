@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       toast.success('Login successful');
-      return { success: true };
+      return { success: true, user };
     } catch (error) {
       const isNetworkError = !error.response && (error.code === 'ERR_NETWORK' || error.message === 'Network Error');
       const message = isNetworkError

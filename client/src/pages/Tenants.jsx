@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/api';
 import toast from 'react-hot-toast';
-import { Plus, Edit, Trash2, Building2, Copy, Check, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, Building2, Copy, Check, Search, CheckCircle, XCircle } from 'lucide-react';
 
 export default function Tenants() {
   const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
+  const isPlatformAdmin = isSuperAdmin || (user?.role === 'admin' && !user?.tenant_code);
+
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,10 +27,10 @@ export default function Tenants() {
   });
 
   useEffect(() => {
-    if (user?.role === 'super_admin') {
+    if (isPlatformAdmin) {
       fetchTenants();
     }
-  }, [user]);
+  }, [isPlatformAdmin]);
 
   const fetchTenants = async () => {
     try {
@@ -55,8 +58,8 @@ export default function Tenants() {
         await api.put(`/tenants/${editingTenant.id}`, formData);
         toast.success('Tenant updated successfully');
       } else {
-        await api.post('/tenants', formData);
-        toast.success('Tenant created successfully');
+        const res = await api.post('/tenants', formData);
+        toast.success(res.data?.message || (isSuperAdmin ? 'Tenant created successfully' : 'Tenant request submitted for super admin approval.'));
       }
       setShowModal(false);
       resetForm();
@@ -83,6 +86,10 @@ export default function Tenants() {
   };
 
   const handleStatusToggle = async (tenant) => {
+    if (tenant.status === 'pending') {
+      toast.error('Pending tenants cannot be toggled. Super admin must approve first.');
+      return;
+    }
     const next = tenant.status === 'active' ? 'inactive' : 'active';
     try {
       await api.put(`/tenants/${tenant.id}`, { status: next });
@@ -90,6 +97,27 @@ export default function Tenants() {
       fetchTenants();
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to update status');
+    }
+  };
+
+  const handleApprove = async (tenant) => {
+    try {
+      await api.patch(`/tenants/${tenant.id}/approve`);
+      toast.success('Tenant approved and created successfully');
+      fetchTenants();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to approve');
+    }
+  };
+
+  const handleReject = async (tenant) => {
+    if (!window.confirm(`Reject tenant "${tenant.restaurant_name}"? This will remove the request.`)) return;
+    try {
+      await api.patch(`/tenants/${tenant.id}/reject`);
+      toast.success('Tenant request rejected');
+      fetchTenants();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to reject');
     }
   };
 
@@ -141,10 +169,10 @@ export default function Tenants() {
       )
     : tenants;
 
-  if (user?.role !== 'super_admin') {
+  if (!isPlatformAdmin) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">Access denied. Super admin privileges required.</p>
+        <p className="text-gray-500">Access denied. Platform admin privileges required.</p>
       </div>
     );
   }
@@ -183,7 +211,7 @@ export default function Tenants() {
             className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            Create Tenant
+            {isSuperAdmin ? 'Create Tenant' : 'Request New Tenant'}
           </button>
         </div>
       </div>
@@ -250,20 +278,43 @@ export default function Tenants() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tenant.username}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className={`px-2 py-1 text-xs rounded-full ${
-                        tenant.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                        tenant.status === 'active' ? 'bg-green-100 text-green-800' :
+                        tenant.status === 'pending' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
                       }`}>
                         {tenant.status}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => handleStatusToggle(tenant)}
-                        className="text-xs text-primary-600 hover:text-primary-800 font-medium"
-                        title={tenant.status === 'active' ? 'Set inactive (block login)' : 'Set active (allow login)'}
-                      >
-                        {tenant.status === 'active' ? 'Deactivate' : 'Activate'}
-                      </button>
+                      {tenant.status === 'pending' && isSuperAdmin && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(tenant)}
+                            className="text-xs text-green-600 hover:text-green-800 font-medium flex items-center gap-1"
+                            title="Approve and create tenant"
+                          >
+                            <CheckCircle className="w-4 h-4" /> Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleReject(tenant)}
+                            className="text-xs text-red-600 hover:text-red-800 font-medium flex items-center gap-1"
+                            title="Reject request"
+                          >
+                            <XCircle className="w-4 h-4" /> Reject
+                          </button>
+                        </>
+                      )}
+                      {tenant.status !== 'pending' && (
+                        <button
+                          type="button"
+                          onClick={() => handleStatusToggle(tenant)}
+                          className="text-xs text-primary-600 hover:text-primary-800 font-medium"
+                          title={tenant.status === 'active' ? 'Set inactive (block login)' : 'Set active (allow login)'}
+                        >
+                          {tenant.status === 'active' ? 'Deactivate' : 'Activate'}
+                        </button>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -277,13 +328,16 @@ export default function Tenants() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(tenant)}
-                        className="text-primary-600 hover:text-primary-900"
-                      >
-                        <Edit className="w-5 h-5" />
-                      </button>
-                      {user?.role === 'admin' && (
+                      {isSuperAdmin && tenant.status !== 'pending' && (
+                        <button
+                          onClick={() => handleEdit(tenant)}
+                          className="text-primary-600 hover:text-primary-900"
+                          title="Edit tenant"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </button>
+                      )}
+                      {isSuperAdmin && (
                         <button
                           onClick={() => handleDelete(tenant.id)}
                           className="text-red-600 hover:text-red-900"
@@ -426,8 +480,10 @@ export default function Tenants() {
               {!editingTenant && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <p className="text-sm text-blue-800">
-                    <strong>Note:</strong> A unique tenant code will be generated automatically. 
-                    Share the tenant code with the business owner for login.
+                    <strong>Note:</strong> A unique tenant code will be generated automatically.
+                    {isSuperAdmin
+                      ? ' Share the tenant code with the business owner for login.'
+                      : ' Your request will be created after super admin approval.'}
                   </p>
                 </div>
               )}

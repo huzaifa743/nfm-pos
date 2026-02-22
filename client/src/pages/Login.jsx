@@ -34,8 +34,13 @@ export default function Login() {
     setLoading(true);
     const result = await login(username, password, effectiveTenantCode);
     setLoading(false);
-    if (result.success) {
-      navigate('/dashboard');
+    if (result.success && result.user) {
+      const u = result.user;
+      if (u.role === 'super_admin' || (u.role === 'admin' && !u.tenant_code)) {
+        navigate('/tenants');
+      } else {
+        navigate('/dashboard');
+      }
     }
   };
 
@@ -90,7 +95,7 @@ export default function Login() {
                   value={tenantCode}
                   onChange={(e) => setTenantCode(e.target.value)}
                   className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Enter tenant code"
+                  placeholder="Leave empty for Super admin / Platform admin"
                 />
               </div>
             ) : (

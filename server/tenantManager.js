@@ -53,6 +53,23 @@ function initializeMasterDatabase() {
         }
       });
 
+      // Platform admins table (can see tenants, change status, create tenants pending approval)
+      masterDb.run(`CREATE TABLE IF NOT EXISTS admins (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        full_name TEXT,
+        email TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`, (err) => {
+        if (err) {
+          console.error('Error creating admins table:', err);
+          reject(err);
+          return;
+        }
+      });
+
       // Tenants table - stores information about each business/tenant
       masterDb.run(`CREATE TABLE IF NOT EXISTS tenants (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,8 +105,41 @@ function initializeMasterDatabase() {
               reject(err3);
               return;
             }
-            console.log('✅ Master database initialized');
-            resolve();
+            // Migrate: add created_by_type and created_by_id for audit
+            masterDb.run('ALTER TABLE tenants ADD COLUMN created_by_type TEXT', (err4) => {
+              if (err4 && !/duplicate column name/i.test(err4.message)) {
+                console.error('Error adding created_by_type:', err4);
+                reject(err4);
+                return;
+              }
+              masterDb.run('ALTER TABLE tenants ADD COLUMN created_by_id INTEGER', (err5) => {
+                if (err5 && !/duplicate column name/i.test(err5.message)) {
+                  console.error('Error adding created_by_id:', err5);
+                  reject(err5);
+                  return;
+                }
+                // Activity log - all admin/superadmin actions
+                masterDb.run(`CREATE TABLE IF NOT EXISTS activity_log (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  actor_type TEXT NOT NULL,
+                  actor_id INTEGER NOT NULL,
+                  actor_username TEXT NOT NULL,
+                  action TEXT NOT NULL,
+                  target_type TEXT,
+                  target_id INTEGER,
+                  details TEXT,
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )`, (err6) => {
+                  if (err6) {
+                    console.error('Error creating activity_log table:', err6);
+                    reject(err6);
+                    return;
+                  }
+                  console.log('✅ Master database initialized');
+                  resolve();
+                });
+              });
+            });
           });
         });
       });

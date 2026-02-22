@@ -21,7 +21,8 @@ import {
   Banknote,
   TrendingDown,
   ArrowLeftRight,
-  ChevronRight
+  ChevronRight,
+  Shield
 } from 'lucide-react';
 
 export default function Sidebar({ isOpen, onToggle }) {
@@ -33,12 +34,19 @@ export default function Sidebar({ isOpen, onToggle }) {
     window.location.href = '/login';
   };
 
+  const isPlatformAdmin = user?.role === 'super_admin' || (user?.role === 'admin' && !user?.tenant_code);
+  const isSuperAdmin = user?.role === 'super_admin';
+
   // Group menu items by category
-  const menuSections = user?.role === 'super_admin'
+  const menuSections = isPlatformAdmin
     ? [
         {
           title: null,
-          items: [{ path: '/tenants', icon: Building2, label: 'Tenants' }]
+          items: [
+            { path: '/tenants', icon: Building2, label: 'Tenants' },
+            ...(isSuperAdmin ? [{ path: '/superadmin', icon: Shield, label: 'Superadmin' }] : []),
+            { path: '/settings', icon: Settings, label: 'Settings' }
+          ]
         }
       ]
     : [

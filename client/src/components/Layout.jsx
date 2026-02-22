@@ -13,7 +13,10 @@ export default function Layout() {
     setIsMenuOpen(!isMenuOpen);
   };
 
-  if (user?.role === 'super_admin' && !location.pathname.startsWith('/tenants')) {
+  const isPlatformAdmin = user?.role === 'super_admin' || (user?.role === 'admin' && !user?.tenant_code);
+  const allowedPlatformPaths = ['/tenants', '/superadmin', '/settings'];
+  const isAllowedPath = allowedPlatformPaths.some(p => location.pathname.startsWith(p));
+  if (isPlatformAdmin && !isAllowedPath) {
     return <Navigate to="/tenants" replace />;
   }
 

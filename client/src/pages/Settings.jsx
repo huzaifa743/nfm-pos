@@ -5,7 +5,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import api from '../api/api';
 import { getImageURL } from '../utils/api';
 import toast from 'react-hot-toast';
-import { Save, Upload, Globe, Receipt, Building2 } from 'lucide-react';
+import { Save, Upload, Globe, Receipt, Building2, Key } from 'lucide-react';
 
 // Shared form input styles for consistency
 const inputClass = 'w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-white transition-colors focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent placeholder-gray-400';
@@ -37,16 +37,25 @@ export default function Settings() {
   const [logoPreview, setLogoPreview] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
 
+  // Platform admin (super_admin / admin with no tenant): options only, e.g. password change
+  const isPlatformAdmin = user?.role === 'super_admin' || (user?.role === 'admin' && !user?.tenant_code);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ username: '', password: '' });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+
   useEffect(() => {
-    if (user) {
-      fetchSettings();
+    if (!user) return;
+    if (!user.tenant_code) {
+      setLoading(false);
+      return;
     }
+    fetchSettings();
   }, [user?.tenant_code]);
 
   const fetchSettings = async () => {
+    if (!user?.tenant_code) return;
     try {
-      const url = user?.tenant_code ? `/settings?tenant_code=${user.tenant_code}` : '/settings';
-      const response = await api.get(url);
+      const response = await api.get(`/settings?tenant_code=${user.tenant_code}`);
       setSettings(prev => ({ ...prev, ...response.data }));
       setLogoPreview(response.data.restaurant_logo ? getImageURL(response.data.restaurant_logo) : null);
     } catch (error) {
@@ -54,6 +63,28 @@ export default function Settings() {
       toast.error('Failed to load settings');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (!passwordForm.username && !passwordForm.password) {
+      toast.error('Enter username and/or password');
+      return;
+    }
+    setPasswordSaving(true);
+    try {
+      await api.patch('/superadmin/me', {
+        username: passwordForm.username || undefined,
+        password: passwordForm.password || undefined
+      });
+      toast.success('Credentials updated. Please log in again.');
+      setPasswordForm({ username: '', password: '' });
+      setShowPasswordModal(false);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update');
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -108,12 +139,103 @@ export default function Settings() {
     }
   };
 
-  if (user?.role !== 'admin') {
+  // Tenant users: require admin role. Platform admin (no tenant) see Options below.
+  if (user?.tenant_code && user?.role !== 'admin') {
     return (
       <div className="flex items-center justify-center min-h-[320px]">
         <div className="text-center p-8 bg-white rounded-xl border border-gray-200 shadow-sm">
           <p className="text-gray-500 text-base">Access denied. Admin privileges required.</p>
         </div>
+      </div>
+    );
+  }
+
+  // Platform admin (no tenant): show Options page with password change
+  if (isPlatformAdmin) {
+    return (
+      <div className="w-full pb-12">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Settings</h1>
+          <p className="text-sm text-gray-500 mt-1">Platform options</p>
+        </div>
+
+        {user?.role === 'super_admin' && (
+          <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/80">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary-100 text-primary-600">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900">Change password or username</h2>
+                  <p className="text-xs text-gray-500">Update your super admin login credentials</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6">
+              <button
+                type="button"
+                onClick={() => setShowPasswordModal(true)}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
+              >
+                <Key className="w-5 h-5" />
+                Change password or username
+              </button>
+            </div>
+          </section>
+        )}
+
+        {user?.role === 'admin' && !user?.tenant_code && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <p className="text-gray-600">To change your password, contact the super admin.</p>
+          </div>
+        )}
+
+        {showPasswordModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Change Super Admin credentials</h3>
+              <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                <div>
+                  <label className={labelClass}>New username</label>
+                  <input
+                    type="text"
+                    value={passwordForm.username}
+                    onChange={(e) => setPasswordForm((f) => ({ ...f, username: e.target.value }))}
+                    className={inputClass}
+                    placeholder="Leave empty to keep current"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>New password</label>
+                  <input
+                    type="password"
+                    value={passwordForm.password}
+                    onChange={(e) => setPasswordForm((f) => ({ ...f, password: e.target.value }))}
+                    className={inputClass}
+                    placeholder="Leave empty to keep current"
+                  />
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="submit"
+                    disabled={passwordSaving}
+                    className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    Update credentials
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowPasswordModal(false); setPasswordForm({ username: '', password: '' }); }}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

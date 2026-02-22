@@ -12,50 +12,75 @@ router.post('/login', async (req, res) => {
   try {
     const { username, password, tenant_code } = req.body;
 
-    // Check if super admin login (no tenant_code)
+    // Check if platform-level login (no tenant_code): super_admin or admin
     if (!tenant_code) {
-      // Super admin login - check master database
       try {
+        // 1. Super admin first
         const superAdmin = await masterDbHelpers.get(
           'SELECT * FROM super_admins WHERE username = ?',
           [username]
         );
 
-        if (!superAdmin) {
-          return res.status(401).json({ 
-            error: 'Invalid credentials. Super admin not found. Please run: npm run setup-super-admin' 
+        if (superAdmin) {
+          const validPassword = await bcrypt.compare(password, superAdmin.password);
+          if (!validPassword) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+          }
+          const token = jwt.sign(
+            { id: superAdmin.id, username: superAdmin.username, role: 'super_admin', tenant_code: null },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+          );
+          return res.json({
+            token,
+            user: {
+              id: superAdmin.id,
+              username: superAdmin.username,
+              email: superAdmin.email,
+              role: 'super_admin',
+              tenant_code: null
+            }
           });
         }
 
-        const validPassword = await bcrypt.compare(password, superAdmin.password);
-        if (!validPassword) {
-          return res.status(401).json({ error: 'Invalid credentials' });
+        // 2. Platform admin (admins table)
+        const admin = await masterDbHelpers.get(
+          'SELECT * FROM admins WHERE username = ?',
+          [username]
+        );
+        if (admin) {
+          const validPassword = await bcrypt.compare(password, admin.password);
+          if (!validPassword) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+          }
+          const token = jwt.sign(
+            { id: admin.id, username: admin.username, role: 'admin', tenant_code: null },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+          );
+          return res.json({
+            token,
+            user: {
+              id: admin.id,
+              username: admin.username,
+              email: admin.email,
+              role: 'admin',
+              tenant_code: null
+            }
+          });
         }
 
-        const token = jwt.sign(
-          { id: superAdmin.id, username: superAdmin.username, role: 'super_admin', tenant_code: null },
-          JWT_SECRET,
-          { expiresIn: '24h' }
-        );
-        return res.json({
-          token,
-          user: {
-            id: superAdmin.id,
-            username: superAdmin.username,
-            email: superAdmin.email,
-            role: 'super_admin',
-            tenant_code: null
-          }
+        return res.status(401).json({
+          error: 'Invalid credentials. For platform login leave Tenant Code empty.'
         });
       } catch (dbError) {
-        console.error('Super admin login database error:', dbError);
-        // Check if it's a table doesn't exist error
+        console.error('Platform login database error:', dbError);
         if (dbError.message && dbError.message.includes('no such table')) {
-          return res.status(500).json({ 
-            error: 'Super admin table not initialized. Please run: npm run setup-super-admin' 
+          return res.status(500).json({
+            error: 'Database not initialized. Please run: npm run setup-super-admin'
           });
         }
-        throw dbError; // Re-throw to be caught by outer catch
+        throw dbError;
       }
     }
 
