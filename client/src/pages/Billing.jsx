@@ -818,7 +818,23 @@ export default function Billing() {
       };
 
       const response = await api.post('/sales', saleData);
-      setCompletedSale(response.data);
+      const completedSplitSale = {
+        ...response.data,
+        customer_name:
+          (response.data?.customer_name && String(response.data.customer_name).trim()) ||
+          (selectedCustomer?.name && String(selectedCustomer.name).trim()) ||
+          null,
+        customer_phone:
+          (response.data?.customer_phone && String(response.data.customer_phone).trim()) ||
+          (selectedCustomer?.phone && String(selectedCustomer.phone).trim()) ||
+          null,
+        customer_address:
+          (response.data?.customer_address && String(response.data.customer_address).trim()) ||
+          (selectedCustomer?.address && String(selectedCustomer.address).trim()) ||
+          null,
+        customer: response.data?.customer || (selectedCustomer ? { ...selectedCustomer } : undefined),
+      };
+      setCompletedSale(completedSplitSale);
       setShowSplitPaymentModal(false);
       setShowReceipt(true);
       // Clear cart and reset all related state immediately
@@ -937,7 +953,26 @@ export default function Billing() {
       };
 
       const response = await api.post('/sales', saleData);
-      setCompletedSale(response.data);
+      const completedSale = {
+        ...response.data,
+        customer_name:
+          (response.data?.customer_name && String(response.data.customer_name).trim()) ||
+          (saleData.customer_name && String(saleData.customer_name).trim()) ||
+          (selectedCustomer?.name && String(selectedCustomer.name).trim()) ||
+          null,
+        customer_phone:
+          (response.data?.customer_phone && String(response.data.customer_phone).trim()) ||
+          (saleData.customer_phone && String(saleData.customer_phone).trim()) ||
+          (selectedCustomer?.phone && String(selectedCustomer.phone).trim()) ||
+          null,
+        customer_address:
+          (response.data?.customer_address && String(response.data.customer_address).trim()) ||
+          (saleData.customer_address && String(saleData.customer_address).trim()) ||
+          (selectedCustomer?.address && String(selectedCustomer.address).trim()) ||
+          null,
+        customer: response.data?.customer || (selectedCustomer ? { ...selectedCustomer } : undefined),
+      };
+      setCompletedSale(completedSale);
       setShowCheckoutModal(false);
       setShowReceipt(true);
       // Clear cart and reset all related state immediately
