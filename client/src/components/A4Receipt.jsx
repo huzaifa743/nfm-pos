@@ -7,6 +7,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { numberToWords } from '../utils/numberToWords';
 
 const A4Receipt = ({ sale, onClose, onPrint }) => {
+    // DEBUG: Log sale and customer info at render time
+    console.log('A4Receipt sale:', sale);
   const { settings, formatCurrency } = useSettings();
   const { user } = useAuth();
 
@@ -20,9 +22,19 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
   };
 
   const customer = {
-    name: sale.customer_name || 'Walk-in Customer',
-    address: sale.customer_address || 'N/A',
-    phone: sale.customer_phone || 'N/A'
+    name: sale.customer_name || (sale.customer && sale.customer.name) || 'Walk-in Customer',
+    address:
+      (sale.customer_address && typeof sale.customer_address === 'string' && sale.customer_address.trim()) ? sale.customer_address.trim() :
+      (sale.customer && sale.customer.address && typeof sale.customer.address === 'string' && sale.customer.address.trim()) ? sale.customer.address.trim() :
+      (sale.customer_address && typeof sale.customer_address === 'number') ? String(sale.customer_address) :
+      (sale.customer && sale.customer.address && typeof sale.customer.address === 'number') ? String(sale.customer.address) :
+      '',
+    phone:
+      (sale.customer_phone && typeof sale.customer_phone === 'string' && sale.customer_phone.trim()) ? sale.customer_phone.trim() :
+      (sale.customer && sale.customer.phone && typeof sale.customer.phone === 'string' && sale.customer.phone.trim()) ? sale.customer.phone.trim() :
+      (sale.customer_phone && typeof sale.customer_phone === 'number') ? String(sale.customer_phone) :
+      (sale.customer && sale.customer.phone && typeof sale.customer.phone === 'number') ? String(sale.customer.phone) :
+      '',
   };
 
   const INVOICE_BLUE = '#1e40af';
@@ -456,7 +468,7 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
                     <span className="font-bold underline">{customer.name}</span>
                   </p>
                   <p className="text-black" style={{ fontSize: '9pt', margin: 0, padding: 0, lineHeight: '1.3' }}>
-                    Phone: {customer.phone} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Address: {customer.address}
+                    Phone: {customer.phone} &nbsp;&nbsp;&nbsp;&nbsp; Address: {customer.address}
                   </p>
                 </div>
               </section>

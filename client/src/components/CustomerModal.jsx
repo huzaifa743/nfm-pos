@@ -106,6 +106,7 @@ export default function CustomerModal({ onClose, onSelect }) {
                 <button
                   key={customer.id}
                   onClick={() => {
+                    console.log('Customer selected:', JSON.stringify(customer));
                     onSelect(customer);
                     onClose();
                   }}

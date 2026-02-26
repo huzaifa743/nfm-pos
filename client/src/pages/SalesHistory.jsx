@@ -9,6 +9,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ReceiptPrint from '../components/ReceiptPrint';
+import A4Receipt from '../components/A4Receipt';
 import { getReceiptPrintStyles } from '../utils/receiptPrintStyles';
 
 export default function SalesHistory() {
@@ -68,29 +69,79 @@ export default function SalesHistory() {
       setShowReceipt(true);
       // Auto print after a short delay
       setTimeout(() => {
-        const paperSize = settings.receipt_paper_size || '80mm';
-        const receiptContent = document.getElementById('receipt-content');
-        if (!receiptContent) return;
-        
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Receipt</title>
-              <style>
-                ${getReceiptPrintStyles(paperSize)}
-              </style>
-            </head>
-            <body>
-              ${receiptContent.innerHTML}
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
-        setTimeout(() => {
-          printWindow.print();
-        }, 250);
+        if (settings.invoice_type === 'A4') {
+          // Print A4
+          const receiptContent = document.getElementById('a4-receipt-content');
+          if (!receiptContent) return;
+          const wrapper = receiptContent.closest('.a4-scale-wrapper');
+          if (!wrapper) return;
+          const receiptHTML = wrapper.outerHTML;
+          const printFrame = document.createElement('iframe');
+          printFrame.style.cssText = 'position:fixed;right:0;bottom:0;width:210mm;height:297mm;border:0;opacity:0;pointer-events:none;visibility:hidden;';
+          document.body.appendChild(printFrame);
+          const printDoc = printFrame.contentDocument || printFrame.contentWindow.document;
+          printDoc.open();
+          printDoc.write(`
+            <!DOCTYPE html>
+            <html lang="en">
+              <head>
+                <meta charset="utf-8">
+                <title>Invoice</title>
+                <style>${require('../utils/receiptPrintStyles').getA4ReceiptPrintStyles()}</style>
+              </head>
+              <body style="width:210mm;min-width:210mm;overflow:hidden;margin:0;padding:0;">${receiptHTML}</body>
+            </html>
+          `);
+          printDoc.close();
+          let printed = false;
+          const doPrint = () => {
+            if (printed) return;
+            printed = true;
+            printFrame.contentWindow?.focus?.();
+            printFrame.contentWindow?.print?.();
+            setTimeout(() => {
+              if (document.body.contains(printFrame)) document.body.removeChild(printFrame);
+            }, 1000);
+          };
+          printFrame.onload = () => {
+            const doc = printFrame.contentDocument;
+            const promises = [];
+            if (typeof doc?.fonts?.ready?.then === 'function') promises.push(doc.fonts.ready);
+            const imgs = doc?.querySelectorAll?.('img') || [];
+            if (imgs.length) {
+              promises.push(Promise.race([
+                Promise.all(Array.from(imgs).map((img) => img.complete ? Promise.resolve() : new Promise((r) => { img.onload = img.onerror = r; }))),
+                new Promise((r) => setTimeout(r, 600))
+              ]));
+            }
+            Promise.all(promises).then(doPrint).catch(doPrint);
+          };
+          setTimeout(doPrint, 800);
+        } else {
+          // Print Thermal
+          const paperSize = settings.receipt_paper_size || '80mm';
+          const receiptContent = document.getElementById('receipt-content');
+          if (!receiptContent) return;
+          const printWindow = window.open('', '_blank');
+          printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <title>Receipt</title>
+                <style>
+                  ${getReceiptPrintStyles(paperSize)}
+                </style>
+              </head>
+              <body>
+                ${receiptContent.innerHTML}
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+          setTimeout(() => {
+            printWindow.print();
+          }, 250);
+        }
       }, 500);
     } catch (error) {
       console.error('Error fetching sale details:', error);
@@ -494,38 +545,96 @@ export default function SalesHistory() {
 
       {/* Receipt Modal */}
       {showReceipt && selectedSale && (
-        <ReceiptPrint
-          sale={selectedSale}
-          onClose={() => {
-            setShowReceipt(false);
-            setSelectedSale(null);
-          }}
-          onPrint={() => {
-            const paperSize = settings.receipt_paper_size || '80mm';
-            const receiptContent = document.getElementById('receipt-content');
-            if (!receiptContent) return;
-            
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(`
-              <!DOCTYPE html>
-              <html>
-                <head>
-                  <title>Receipt</title>
-                  <style>
-                    ${getReceiptPrintStyles(paperSize)}
-                  </style>
-                </head>
-                <body>
-                  ${receiptContent.innerHTML}
-                </body>
-              </html>
-            `);
-            printWindow.document.close();
-            setTimeout(() => {
-              printWindow.print();
-            }, 250);
-          }}
-        />
+        settings.invoice_type === 'A4' ? (
+          <A4Receipt
+            sale={selectedSale}
+            onClose={() => {
+              setShowReceipt(false);
+              setSelectedSale(null);
+            }}
+            onPrint={() => {
+              // Print A4
+              const receiptContent = document.getElementById('a4-receipt-content');
+              if (!receiptContent) return;
+              const wrapper = receiptContent.closest('.a4-scale-wrapper');
+              if (!wrapper) return;
+              const receiptHTML = wrapper.outerHTML;
+              const printFrame = document.createElement('iframe');
+              printFrame.style.cssText = 'position:fixed;right:0;bottom:0;width:210mm;height:297mm;border:0;opacity:0;pointer-events:none;visibility:hidden;';
+              document.body.appendChild(printFrame);
+              const printDoc = printFrame.contentDocument || printFrame.contentWindow.document;
+              printDoc.open();
+              printDoc.write(`
+                <!DOCTYPE html>
+                <html lang="en">
+                  <head>
+                    <meta charset="utf-8">
+                    <title>Invoice</title>
+                    <style>${require('../utils/receiptPrintStyles').getA4ReceiptPrintStyles()}</style>
+                  </head>
+                  <body style="width:210mm;min-width:210mm;overflow:hidden;margin:0;padding:0;">${receiptHTML}</body>
+                </html>
+              `);
+              printDoc.close();
+              let printed = false;
+              const doPrint = () => {
+                if (printed) return;
+                printed = true;
+                printFrame.contentWindow?.focus?.();
+                printFrame.contentWindow?.print?.();
+                setTimeout(() => {
+                  if (document.body.contains(printFrame)) document.body.removeChild(printFrame);
+                }, 1000);
+              };
+              printFrame.onload = () => {
+                const doc = printFrame.contentDocument;
+                const promises = [];
+                if (typeof doc?.fonts?.ready?.then === 'function') promises.push(doc.fonts.ready);
+                const imgs = doc?.querySelectorAll?.('img') || [];
+                if (imgs.length) {
+                  promises.push(Promise.race([
+                    Promise.all(Array.from(imgs).map((img) => img.complete ? Promise.resolve() : new Promise((r) => { img.onload = img.onerror = r; }))),
+                    new Promise((r) => setTimeout(r, 600))
+                  ]));
+                }
+                Promise.all(promises).then(doPrint).catch(doPrint);
+              };
+              setTimeout(doPrint, 800);
+            }}
+          />
+        ) : (
+          <ReceiptPrint
+            sale={selectedSale}
+            onClose={() => {
+              setShowReceipt(false);
+              setSelectedSale(null);
+            }}
+            onPrint={() => {
+              const paperSize = settings.receipt_paper_size || '80mm';
+              const receiptContent = document.getElementById('receipt-content');
+              if (!receiptContent) return;
+              const printWindow = window.open('', '_blank');
+              printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                  <head>
+                    <title>Receipt</title>
+                    <style>
+                      ${getReceiptPrintStyles(paperSize)}
+                    </style>
+                  </head>
+                  <body>
+                    ${receiptContent.innerHTML}
+                  </body>
+                </html>
+              `);
+              printWindow.document.close();
+              setTimeout(() => {
+                printWindow.print();
+              }, 250);
+            }}
+          />
+        )
       )}
     </div>
   );

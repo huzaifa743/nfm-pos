@@ -919,6 +919,9 @@ export default function Billing() {
 
       const saleData = {
         customer_id: selectedCustomer?.id || null,
+        customer_name: selectedCustomer?.name || null,
+        customer_phone: selectedCustomer?.phone || null,
+        customer_address: selectedCustomer?.address || null,
         items: validatedItems,
         subtotal: parseFloat(subtotal),
         discount_amount: parseFloat(discount),
@@ -980,7 +983,6 @@ export default function Billing() {
           const displayQty = parseFloat(item.display_quantity).toFixed(4).replace(/\.?0+$/, '');
           productName = `${item.product_name} (${displayQty} ${item.selected_unit} = ${parseFloat(item.quantity).toFixed(4).replace(/\.?0+$/, '')} ${item.product_base_unit})`;
         }
-        
         return {
           product_name: productName,
           quantity: item.quantity,
@@ -1000,6 +1002,8 @@ export default function Billing() {
       payment_amount: total,
       change_amount: 0,
       customer_name: selectedCustomer?.name || null,
+      customer_phone: selectedCustomer?.phone ?? '',
+      customer_address: selectedCustomer?.address ?? '',
     };
   };
 
