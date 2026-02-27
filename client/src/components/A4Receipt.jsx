@@ -116,10 +116,14 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
     }
   };
 
+  // Always use the current system date/time for the invoice display,
+  // so it is consistent across dev/online environments and not affected
+  // by server/database timezone differences.
+  const now = new Date();
   const invoice = {
     number: sale.sale_number || 'N/A',
-    date: sale.created_at ? formatDate(sale.created_at) : formatDate(new Date()),
-    time: sale.created_at ? formatTime(sale.created_at) : formatTime(new Date()),
+    date: formatDate(now),
+    time: formatTime(now),
     user: sale.user_name || user?.username || 'Admin User',
   };
 
