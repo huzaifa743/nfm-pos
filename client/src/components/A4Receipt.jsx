@@ -46,8 +46,8 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
       let date;
       // Handle SQLite datetime format: "YYYY-MM-DD HH:MM:SS"
       if (typeof dateString === 'string' && dateString.includes(' ')) {
-        // Convert SQLite format to ISO format for proper parsing
-        const isoString = dateString.replace(' ', 'T');
+        // Treat DB datetime as UTC, then convert to local time
+        const isoString = dateString.replace(' ', 'T') + 'Z';
         date = new Date(isoString);
       } else {
         date = new Date(dateString);
@@ -83,8 +83,8 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
       let date;
       // Handle SQLite datetime format: "YYYY-MM-DD HH:MM:SS"
       if (typeof dateString === 'string' && dateString.includes(' ')) {
-        // Convert SQLite format to ISO format for proper parsing
-        const isoString = dateString.replace(' ', 'T');
+        // Treat DB datetime as UTC, then convert to local time
+        const isoString = dateString.replace(' ', 'T') + 'Z';
         date = new Date(isoString);
       } else {
         date = new Date(dateString);
@@ -116,14 +116,11 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
     }
   };
 
-  // Always use the current system date/time for the invoice display,
-  // so it is consistent across dev/online environments and not affected
-  // by server/database timezone differences.
-  const now = new Date();
+  // Use the sale's original creation time for invoice display
   const invoice = {
     number: sale.sale_number || 'N/A',
-    date: formatDate(now),
-    time: formatTime(now),
+    date: sale.created_at ? formatDate(sale.created_at) : formatDate(new Date()),
+    time: sale.created_at ? formatTime(sale.created_at) : formatTime(new Date()),
     user: sale.user_name || user?.username || 'Admin User',
   };
 

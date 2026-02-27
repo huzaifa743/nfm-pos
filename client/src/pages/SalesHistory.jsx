@@ -10,7 +10,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ReceiptPrint from '../components/ReceiptPrint';
 import A4Receipt from '../components/A4Receipt';
-import { getReceiptPrintStyles } from '../utils/receiptPrintStyles';
+import { getReceiptPrintStyles, getA4ReceiptPrintStyles } from '../utils/receiptPrintStyles';
 
 export default function SalesHistory() {
   const { t } = useTranslation();
@@ -87,7 +87,7 @@ export default function SalesHistory() {
               <head>
                 <meta charset="utf-8">
                 <title>Invoice</title>
-                <style>${require('../utils/receiptPrintStyles').getA4ReceiptPrintStyles()}</style>
+                <style>${getA4ReceiptPrintStyles()}</style>
               </head>
               <body style="width:210mm;min-width:210mm;overflow:hidden;margin:0;padding:0;">${receiptHTML}</body>
             </html>
@@ -570,7 +570,7 @@ export default function SalesHistory() {
                   <head>
                     <meta charset="utf-8">
                     <title>Invoice</title>
-                    <style>${require('../utils/receiptPrintStyles').getA4ReceiptPrintStyles()}</style>
+                    <style>${getA4ReceiptPrintStyles()}</style>
                   </head>
                   <body style="width:210mm;min-width:210mm;overflow:hidden;margin:0;padding:0;">${receiptHTML}</body>
                 </html>
