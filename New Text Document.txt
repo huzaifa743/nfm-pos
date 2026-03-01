@@ -1,3 +1,3 @@
 git add .
-git commit -m "The premium popup now only explains that the feature is premium and that the administrator can enable it from Tenant Management, with no pay/upgrade wording.."
+git commit -m "Feature permissions are separate from Edit."
 git push origin main

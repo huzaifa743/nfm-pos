@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/api';
 import toast from 'react-hot-toast';
-import { Plus, Edit, Trash2, Building2, Copy, Check, Search, CheckCircle, XCircle, Star } from 'lucide-react';
+import { Plus, Edit, Trash2, Building2, Copy, Check, Search, CheckCircle, XCircle, Star, KeyRound } from 'lucide-react';
 import { ALL_FEATURE_KEYS, FEATURE_LABELS, DEFAULT_FEATURES } from '../constants/features';
 
 export default function Tenants() {
@@ -14,6 +14,9 @@ export default function Tenants() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showFeaturesModal, setShowFeaturesModal] = useState(false);
+  const [featuresTenant, setFeaturesTenant] = useState(null);
+  const [featuresAllowed, setFeaturesAllowed] = useState([]);
   const [editingTenant, setEditingTenant] = useState(null);
   const [copiedCode, setCopiedCode] = useState(null);
   const [formData, setFormData] = useState({
@@ -24,8 +27,7 @@ export default function Tenants() {
     username: '',
     password: '',
     status: 'active',
-    valid_until: '',
-    allowed_features: []
+    valid_until: ''
   });
 
   useEffect(() => {
@@ -57,13 +59,8 @@ export default function Tenants() {
     e.preventDefault();
     try {
       if (editingTenant) {
-        const payload = { ...formData };
-        if (Array.isArray(payload.allowed_features)) {
-          // send as-is
-        } else {
-          payload.allowed_features = [];
-        }
-        await api.put(`/tenants/${editingTenant.id}`, payload);
+        const { allowed_features, ...rest } = formData;
+        await api.put(`/tenants/${editingTenant.id}`, rest);
         toast.success('Tenant updated successfully');
       } else {
         const res = await api.post('/tenants', formData);
@@ -79,6 +76,21 @@ export default function Tenants() {
   };
 
   const handleEdit = (tenant) => {
+    setEditingTenant(tenant);
+    setFormData({
+      restaurant_name: tenant.restaurant_name,
+      owner_name: tenant.owner_name,
+      owner_email: tenant.owner_email,
+      owner_phone: tenant.owner_phone || '',
+      username: tenant.username,
+      password: '',
+      status: tenant.status || 'active',
+      valid_until: tenant.valid_until ? tenant.valid_until.split('T')[0] : ''
+    });
+    setShowModal(true);
+  };
+
+  const handleOpenFeatures = (tenant) => {
     let allowed = [];
     try {
       if (tenant.allowed_features != null) {
@@ -90,19 +102,30 @@ export default function Tenants() {
       allowed = [...DEFAULT_FEATURES];
     }
     if (allowed.length === 0) allowed = [...DEFAULT_FEATURES];
-    setEditingTenant(tenant);
-    setFormData({
-      restaurant_name: tenant.restaurant_name,
-      owner_name: tenant.owner_name,
-      owner_email: tenant.owner_email,
-      owner_phone: tenant.owner_phone || '',
-      username: tenant.username,
-      password: '',
-      status: tenant.status || 'active',
-      valid_until: tenant.valid_until ? tenant.valid_until.split('T')[0] : '',
-      allowed_features: allowed
-    });
-    setShowModal(true);
+    setFeaturesTenant(tenant);
+    setFeaturesAllowed(allowed);
+    setShowFeaturesModal(true);
+  };
+
+  const handleSaveFeatures = async () => {
+    if (!featuresTenant) return;
+    try {
+      await api.put(`/tenants/${featuresTenant.id}`, { allowed_features: featuresAllowed });
+      toast.success('Feature permissions updated');
+      setShowFeaturesModal(false);
+      setFeaturesTenant(null);
+      setFeaturesAllowed([]);
+      fetchTenants();
+    } catch (error) {
+      console.error('Error updating features:', error);
+      toast.error(error.response?.data?.error || 'Failed to update features');
+    }
+  };
+
+  const toggleFeature = (key) => {
+    setFeaturesAllowed((prev) =>
+      prev.includes(key) ? prev.filter((f) => f !== key) : [...prev, key]
+    );
   };
 
   const handleStatusToggle = async (tenant) => {
@@ -165,8 +188,7 @@ export default function Tenants() {
       username: '',
       password: '',
       status: 'active',
-      valid_until: '',
-      allowed_features: []
+      valid_until: ''
     });
     setEditingTenant(null);
   };
@@ -350,13 +372,22 @@ export default function Tenants() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex gap-2">
                       {isSuperAdmin && tenant.status !== 'pending' && (
-                        <button
-                          onClick={() => handleEdit(tenant)}
-                          className="text-primary-600 hover:text-primary-900"
-                          title="Edit tenant"
-                        >
-                          <Edit className="w-5 h-5" />
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleOpenFeatures(tenant)}
+                            className="text-amber-600 hover:text-amber-800"
+                            title="Feature permissions"
+                          >
+                            <KeyRound className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleEdit(tenant)}
+                            className="text-primary-600 hover:text-primary-900"
+                            title="Edit tenant"
+                          >
+                            <Edit className="w-5 h-5" />
+                          </button>
+                        </>
                       )}
                       {isSuperAdmin && (
                         <button
@@ -498,43 +529,6 @@ export default function Tenants() {
                 </div>
               )}
 
-              {editingTenant && isSuperAdmin && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Allowed features
-                  </label>
-                  <p className="text-xs text-gray-500 mb-2">
-                    Enable or disable features for this tenant. Disabled features show a premium star in the sidebar.
-                  </p>
-                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-gray-50">
-                    {ALL_FEATURE_KEYS.map((key) => {
-                      const isDefault = DEFAULT_FEATURES.includes(key);
-                      const checked = Array.isArray(formData.allowed_features) && formData.allowed_features.includes(key);
-                      return (
-                        <label key={key} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              const current = formData.allowed_features || [];
-                              const next = current.includes(key)
-                                ? current.filter((f) => f !== key)
-                                : [...current, key];
-                              setFormData({ ...formData, allowed_features: next });
-                            }}
-                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                          />
-                          <span className="text-sm text-gray-700">{FEATURE_LABELS[key] || key}</span>
-                          {!isDefault && (
-                            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 flex-shrink-0" aria-label="Premium" />
-                          )}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
               {!editingTenant && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <p className="text-sm text-blue-800">
@@ -565,6 +559,63 @@ export default function Tenants() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Feature permissions modal (separate from Edit) */}
+      {showFeaturesModal && featuresTenant && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold text-gray-800 mb-1">
+              Feature permissions
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              {featuresTenant.restaurant_name} — {featuresTenant.tenant_code}
+            </p>
+            <p className="text-xs text-gray-500 mb-3">
+              Enable or disable features for this tenant. Disabled features show a premium star in the sidebar.
+            </p>
+            <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-gray-50 mb-6">
+              {ALL_FEATURE_KEYS.map((key) => {
+                const isDefault = DEFAULT_FEATURES.includes(key);
+                const checked = featuresAllowed.includes(key);
+                return (
+                  <label key={key} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleFeature(key)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700">{FEATURE_LABELS[key] || key}</span>
+                    {!isDefault && (
+                      <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 flex-shrink-0" aria-label="Premium" />
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleSaveFeatures}
+                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFeaturesModal(false);
+                  setFeaturesTenant(null);
+                  setFeaturesAllowed([]);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
