@@ -98,7 +98,11 @@ app.get('/health', (req, res) => {
 
 // Keep-alive endpoint to prevent Render from spinning down
 app.get('/api/ping', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'Server is alive', timestamp: new Date().toISOString() });
+  try {
+    res.status(200).json({ status: 'ok', message: 'Server is alive', timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(200).json({ status: 'ok', message: 'Server is alive', timestamp: new Date().toISOString() });
+  }
 });
 
 // Get persistent uploads directory path (same logic as database path)

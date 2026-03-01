@@ -6,6 +6,10 @@ const { logActivity } = require('../activityLog');
 
 const router = express.Router();
 
+// Default features included when a new tenant is created (base plan). All other sidebar features are premium.
+const DEFAULT_TENANT_FEATURES = ['dashboard', 'billing', 'inventory', 'sales-history', 'reports', 'settings'];
+const DEFAULT_FEATURES_JSON = JSON.stringify(DEFAULT_TENANT_FEATURES);
+
 // Generate unique tenant code
 function generateTenantCode(restaurantName) {
   const timestamp = Date.now();
@@ -40,9 +44,9 @@ router.post('/', authenticateToken, requireRole('super_admin', 'admin'), async (
     if (isSuperAdmin) {
       // Super admin: create tenant and DB immediately
       const result = await masterDbHelpers.run(
-        `INSERT INTO tenants (tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, password, status, valid_until, created_by_type, created_by_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'inactive', ?, 'super_admin', ?)`,
-        [tenant_code, restaurant_name, owner_name, owner_email, owner_phone || null, username, hashedPassword, valid_until || null, req.user.id]
+        `INSERT INTO tenants (tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, password, status, valid_until, created_by_type, created_by_id, allowed_features)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'inactive', ?, 'super_admin', ?, ?)`,
+        [tenant_code, restaurant_name, owner_name, owner_email, owner_phone || null, username, hashedPassword, valid_until || null, req.user.id, DEFAULT_FEATURES_JSON]
       );
 
       try {
@@ -60,7 +64,7 @@ router.post('/', authenticateToken, requireRole('super_admin', 'admin'), async (
         await db.close();
 
         const tenant = await masterDbHelpers.get(
-          'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until FROM tenants WHERE id = ?',
+          'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until, allowed_features FROM tenants WHERE id = ?',
           [result.id]
         );
         await logActivity('super_admin', req.user.id, req.user.username, 'tenant_created', 'tenant', result.id, { tenant_code, restaurant_name });
@@ -75,13 +79,13 @@ router.post('/', authenticateToken, requireRole('super_admin', 'admin'), async (
     } else {
       // Admin: create with status 'pending' — no tenant DB until super_admin approves
       const result = await masterDbHelpers.run(
-        `INSERT INTO tenants (tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, password, status, valid_until, created_by_type, created_by_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'admin', ?)`,
-        [tenant_code, restaurant_name, owner_name, owner_email, owner_phone || null, username, hashedPassword, valid_until || null, req.user.id]
+        `INSERT INTO tenants (tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, password, status, valid_until, created_by_type, created_by_id, allowed_features)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'admin', ?, ?)`,
+        [tenant_code, restaurant_name, owner_name, owner_email, owner_phone || null, username, hashedPassword, valid_until || null, req.user.id, DEFAULT_FEATURES_JSON]
       );
       await logActivity('admin', req.user.id, req.user.username, 'tenant_request_created', 'tenant', result.id, { tenant_code, restaurant_name });
       const tenant = await masterDbHelpers.get(
-        'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until FROM tenants WHERE id = ?',
+        'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until, allowed_features FROM tenants WHERE id = ?',
         [result.id]
       );
       res.status(201).json({
@@ -102,7 +106,7 @@ router.post('/', authenticateToken, requireRole('super_admin', 'admin'), async (
 router.get('/', authenticateToken, requireRole('super_admin', 'admin'), async (req, res) => {
   try {
     const tenants = await masterDbHelpers.query(
-      `SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until, created_by_type, created_by_id
+      `SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until, created_by_type, created_by_id, allowed_features
        FROM tenants ORDER BY created_at DESC`
     );
     res.json(tenants);
@@ -116,7 +120,7 @@ router.get('/', authenticateToken, requireRole('super_admin', 'admin'), async (r
 router.get('/:id', authenticateToken, requireRole('super_admin', 'admin'), async (req, res) => {
   try {
     const tenant = await masterDbHelpers.get(
-      'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until, created_by_type, created_by_id FROM tenants WHERE id = ?',
+      'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until, created_by_type, created_by_id, allowed_features FROM tenants WHERE id = ?',
       [req.params.id]
     );
 
@@ -147,7 +151,8 @@ router.put('/:id', authenticateToken, requireRole('super_admin', 'admin'), async
         owner_email,
         owner_phone,
         status,
-        valid_until
+        valid_until,
+        allowed_features
       } = req.body;
       const updates = [];
       const values = [];
@@ -157,6 +162,10 @@ router.put('/:id', authenticateToken, requireRole('super_admin', 'admin'), async
       if (owner_phone !== undefined) { updates.push('owner_phone = ?'); values.push(owner_phone); }
       if (status != null) { updates.push('status = ?'); values.push(status); }
       if (valid_until != null) { updates.push('valid_until = ?'); values.push(valid_until); }
+      if (Array.isArray(allowed_features)) {
+        updates.push('allowed_features = ?');
+        values.push(JSON.stringify(allowed_features));
+      }
       if (updates.length === 0) {
         return res.status(400).json({ error: 'No fields to update' });
       }
@@ -181,7 +190,7 @@ router.put('/:id', authenticateToken, requireRole('super_admin', 'admin'), async
     }
 
     const updated = await masterDbHelpers.get(
-      'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until FROM tenants WHERE id = ?',
+      'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until, allowed_features FROM tenants WHERE id = ?',
       [req.params.id]
     );
     res.json(updated);
@@ -215,14 +224,15 @@ router.patch('/:id/approve', authenticateToken, requireRole('super_admin'), asyn
     );
     await db.close();
 
+    const featuresJson = tenant.allowed_features || DEFAULT_FEATURES_JSON;
     await masterDbHelpers.run(
-      "UPDATE tenants SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [req.params.id]
+      "UPDATE tenants SET status = 'inactive', updated_at = CURRENT_TIMESTAMP, allowed_features = ? WHERE id = ?",
+      [featuresJson, req.params.id]
     );
     await logActivity('super_admin', req.user.id, req.user.username, 'tenant_approved', 'tenant', parseInt(req.params.id, 10), { tenant_code: tenant.tenant_code });
 
     const updated = await masterDbHelpers.get(
-      'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until FROM tenants WHERE id = ?',
+      'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, status, created_at, updated_at, valid_until, allowed_features FROM tenants WHERE id = ?',
       [req.params.id]
     );
     res.json({ message: 'Tenant approved and created successfully', tenant: updated });

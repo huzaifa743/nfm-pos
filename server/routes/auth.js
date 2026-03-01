@@ -7,6 +7,25 @@ const { JWT_SECRET } = require('../middleware/auth');
 
 const router = express.Router();
 
+function parseAllowedFeatures(json) {
+  if (json == null || json === '') return [];
+  try {
+    const arr = typeof json === 'string' ? JSON.parse(json) : json;
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+const DEFAULT_FEATURES = ['dashboard', 'billing', 'inventory', 'sales-history', 'reports', 'settings'];
+
+function getAllowedFeatures(tenantRow) {
+  const raw = tenantRow?.allowed_features;
+  const parsed = parseAllowedFeatures(raw);
+  if (parsed.length === 0) return DEFAULT_FEATURES;
+  return parsed;
+}
+
 // Login - supports both super admin and tenant users
 router.post('/login', async (req, res) => {
   try {
@@ -86,7 +105,7 @@ router.post('/login', async (req, res) => {
 
     // Tenant login - check master database first for tenant owner
     const tenant = await masterDbHelpers.get(
-      'SELECT * FROM tenants WHERE tenant_code = ? AND username = ?',
+      'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, password, status, activated_at, allowed_features FROM tenants WHERE tenant_code = ? AND username = ?',
       [tenant_code, username]
     );
 
@@ -130,14 +149,15 @@ router.post('/login', async (req, res) => {
           email: tenant.owner_email,
           role: 'admin',
           tenant_code: tenant.tenant_code,
-          restaurant_name: tenant.restaurant_name
+          restaurant_name: tenant.restaurant_name,
+          allowed_features: getAllowedFeatures(tenant)
         }
       });
     }
 
     // Check tenant database for regular users (cashiers, etc.)
     const tenantMeta = await masterDbHelpers.get(
-      'SELECT status FROM tenants WHERE tenant_code = ?',
+      'SELECT status, allowed_features FROM tenants WHERE tenant_code = ?',
       [tenant_code]
     );
     if (!tenantMeta) {
@@ -193,7 +213,8 @@ router.post('/login', async (req, res) => {
             email: user.email,
             role: user.role,
             full_name: user.full_name,
-            tenant_code: tenant_code
+            tenant_code: tenant_code,
+            allowed_features: getAllowedFeatures(tenantMeta)
           }
         });
       } catch (error) {

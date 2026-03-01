@@ -74,10 +74,26 @@ const upload = multer({
 });
 
 // Get all settings (public - needed for UI before login)
-// Settings like business name, logo, currency are public information
 // Supports tenant_code query parameter for tenant-specific settings
 // Also checks authenticated user's tenant_code if available
+// Never returns 500: on any error returns 200 with default settings so UI keeps working
 router.get('/', async (req, res) => {
+  const defaultSettingsResponse = {
+    restaurant_name: 'NFM POS',
+    restaurant_logo: '',
+    restaurant_address: '',
+    restaurant_phone: '',
+    restaurant_email: '',
+    trn: '',
+    currency: 'USD',
+    language: 'en',
+    vat_percentage: '0',
+    receipt_auto_print: 'false',
+    receipt_paper_size: '80mm',
+    invoice_type: 'thermal',
+    display_tax_invoice: 'true'
+  };
+
   try {
     let tenant_code = req.query.tenant_code;
     
@@ -123,64 +139,18 @@ router.get('/', async (req, res) => {
           }
         }
         
-        // Ensure all required settings exist with defaults
-        const defaultSettings = {
-          restaurant_name: 'NFM POS',
-          restaurant_logo: '',
-          restaurant_address: '',
-          restaurant_phone: '',
-          restaurant_email: '',
-          trn: '',
-          currency: 'USD',
-          language: 'en',
-          vat_percentage: '0',
-          receipt_auto_print: 'false',
-          receipt_paper_size: '80mm',
-          invoice_type: 'thermal',
-          display_tax_invoice: 'true'
-        };
-        
+        const defaultSettings = { ...defaultSettingsResponse };
         return res.json({ ...defaultSettings, ...settingsObj });
       } catch (error) {
-        console.error('Error fetching tenant settings:', error);
-        // If tenant database doesn't exist, return default settings
-        return res.json({
-          restaurant_name: 'NFM POS',
-          restaurant_logo: '',
-          restaurant_address: '',
-          restaurant_phone: '',
-          restaurant_email: '',
-          trn: '',
-          currency: 'USD',
-          language: 'en',
-          vat_percentage: '0',
-          receipt_auto_print: 'false',
-          receipt_paper_size: '80mm',
-          invoice_type: 'thermal',
-          display_tax_invoice: 'true'
-        });
+        console.error('Error fetching tenant settings:', error.message || error);
+        return res.json(defaultSettingsResponse);
       }
     }
     
-    // Default settings (for backward compatibility when no tenant)
-    res.json({
-      restaurant_name: 'NFM POS',
-      restaurant_logo: '',
-      restaurant_address: '',
-      restaurant_phone: '',
-      restaurant_email: '',
-      trn: '',
-      currency: 'USD',
-      language: 'en',
-      vat_percentage: '0',
-      receipt_auto_print: 'false',
-      receipt_paper_size: '80mm',
-      invoice_type: 'thermal',
-      display_tax_invoice: 'true'
-    });
+    return res.json(defaultSettingsResponse);
   } catch (error) {
-    console.error('Error fetching settings:', error);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Error fetching settings:', error.message || error);
+    return res.status(200).json(defaultSettingsResponse);
   }
 });
 

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/api';
 import toast from 'react-hot-toast';
-import { Plus, Edit, Trash2, Building2, Copy, Check, Search, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Building2, Copy, Check, Search, CheckCircle, XCircle, Star } from 'lucide-react';
+import { ALL_FEATURE_KEYS, FEATURE_LABELS, DEFAULT_FEATURES } from '../constants/features';
 
 export default function Tenants() {
   const { user } = useAuth();
@@ -23,7 +24,8 @@ export default function Tenants() {
     username: '',
     password: '',
     status: 'active',
-    valid_until: ''
+    valid_until: '',
+    allowed_features: []
   });
 
   useEffect(() => {
@@ -55,7 +57,13 @@ export default function Tenants() {
     e.preventDefault();
     try {
       if (editingTenant) {
-        await api.put(`/tenants/${editingTenant.id}`, formData);
+        const payload = { ...formData };
+        if (Array.isArray(payload.allowed_features)) {
+          // send as-is
+        } else {
+          payload.allowed_features = [];
+        }
+        await api.put(`/tenants/${editingTenant.id}`, payload);
         toast.success('Tenant updated successfully');
       } else {
         const res = await api.post('/tenants', formData);
@@ -71,6 +79,17 @@ export default function Tenants() {
   };
 
   const handleEdit = (tenant) => {
+    let allowed = [];
+    try {
+      if (tenant.allowed_features != null) {
+        allowed = typeof tenant.allowed_features === 'string'
+          ? JSON.parse(tenant.allowed_features)
+          : (Array.isArray(tenant.allowed_features) ? tenant.allowed_features : []);
+      }
+    } catch {
+      allowed = [...DEFAULT_FEATURES];
+    }
+    if (allowed.length === 0) allowed = [...DEFAULT_FEATURES];
     setEditingTenant(tenant);
     setFormData({
       restaurant_name: tenant.restaurant_name,
@@ -78,9 +97,10 @@ export default function Tenants() {
       owner_email: tenant.owner_email,
       owner_phone: tenant.owner_phone || '',
       username: tenant.username,
-      password: '', // Don't pre-fill password
+      password: '',
       status: tenant.status || 'active',
-      valid_until: tenant.valid_until ? tenant.valid_until.split('T')[0] : ''
+      valid_until: tenant.valid_until ? tenant.valid_until.split('T')[0] : '',
+      allowed_features: allowed
     });
     setShowModal(true);
   };
@@ -145,7 +165,8 @@ export default function Tenants() {
       username: '',
       password: '',
       status: 'active',
-      valid_until: ''
+      valid_until: '',
+      allowed_features: []
     });
     setEditingTenant(null);
   };
@@ -474,6 +495,43 @@ export default function Tenants() {
                     <option value="active">Active (users can login)</option>
                     <option value="inactive">Inactive (users cannot login)</option>
                   </select>
+                </div>
+              )}
+
+              {editingTenant && isSuperAdmin && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Allowed features
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Enable or disable features for this tenant. Disabled features show a premium star in the sidebar.
+                  </p>
+                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-gray-50">
+                    {ALL_FEATURE_KEYS.map((key) => {
+                      const isDefault = DEFAULT_FEATURES.includes(key);
+                      const checked = Array.isArray(formData.allowed_features) && formData.allowed_features.includes(key);
+                      return (
+                        <label key={key} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              const current = formData.allowed_features || [];
+                              const next = current.includes(key)
+                                ? current.filter((f) => f !== key)
+                                : [...current, key];
+                              setFormData({ ...formData, allowed_features: next });
+                            }}
+                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          />
+                          <span className="text-sm text-gray-700">{FEATURE_LABELS[key] || key}</span>
+                          {!isDefault && (
+                            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 flex-shrink-0" aria-label="Premium" />
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 

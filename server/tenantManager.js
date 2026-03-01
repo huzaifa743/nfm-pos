@@ -118,8 +118,15 @@ function initializeMasterDatabase() {
                   reject(err5);
                   return;
                 }
-                // Activity log - all admin/superadmin actions
-                masterDb.run(`CREATE TABLE IF NOT EXISTS activity_log (
+                // Migrate: add allowed_features (JSON array of feature keys; default = base plan)
+                masterDb.run('ALTER TABLE tenants ADD COLUMN allowed_features TEXT', (errFeature) => {
+                  if (errFeature && !/duplicate column name/i.test(errFeature.message)) {
+                    console.error('Error adding allowed_features:', errFeature);
+                    reject(errFeature);
+                    return;
+                  }
+                  // Activity log - all admin/superadmin actions
+                  masterDb.run(`CREATE TABLE IF NOT EXISTS activity_log (
                   id INTEGER PRIMARY KEY AUTOINCREMENT,
                   actor_type TEXT NOT NULL,
                   actor_id INTEGER NOT NULL,
@@ -144,6 +151,7 @@ function initializeMasterDatabase() {
         });
       });
     });
+  });
   });
 }
 

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,19 +16,23 @@ import {
   LogOut,
   Truck,
   UserCircle,
-  FileText,
   ShoppingBag,
   Receipt,
   Banknote,
   TrendingDown,
   ArrowLeftRight,
   ChevronRight,
-  Shield
+  Shield,
+  Star
 } from 'lucide-react';
+import { isFeatureAllowed, DEFAULT_FEATURES } from '../constants/features';
+import PremiumFeatureModal from './PremiumFeatureModal';
 
 export default function Sidebar({ isOpen, onToggle }) {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
+  const [premiumModalOpen, setPremiumModalOpen] = useState(false);
+  const [premiumFeatureLabel, setPremiumFeatureLabel] = useState('');
 
   const handleLogout = () => {
     logout();
@@ -36,6 +41,7 @@ export default function Sidebar({ isOpen, onToggle }) {
 
   const isPlatformAdmin = user?.role === 'super_admin' || (user?.role === 'admin' && !user?.tenant_code);
   const isSuperAdmin = user?.role === 'super_admin';
+  const allowedFeatures = (user?.allowed_features?.length ? user.allowed_features : DEFAULT_FEATURES);
 
   // Group menu items by category
   const menuSections = isPlatformAdmin
@@ -53,41 +59,41 @@ export default function Sidebar({ isOpen, onToggle }) {
         {
           title: null,
           items: [
-            { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
-            { path: '/billing', icon: ShoppingCart, label: t('nav.billing') },
+            { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard'), featureKey: 'dashboard' },
+            { path: '/billing', icon: ShoppingCart, label: t('nav.billing'), featureKey: 'billing' },
           ]
         },
         {
           title: 'Operations',
           items: [
-            { path: '/inventory', icon: Package, label: t('nav.inventory') },
-            { path: '/unit-conversions', icon: ArrowLeftRight, label: 'Unit Conversion' },
-            { path: '/sales-history', icon: History, label: t('nav.salesHistory') },
-            { path: '/deliveries', icon: Truck, label: 'Deliveries' },
+            { path: '/inventory', icon: Package, label: t('nav.inventory'), featureKey: 'inventory' },
+            { path: '/unit-conversions', icon: ArrowLeftRight, label: 'Unit Conversion', featureKey: 'unit-conversions' },
+            { path: '/sales-history', icon: History, label: t('nav.salesHistory'), featureKey: 'sales-history' },
+            { path: '/deliveries', icon: Truck, label: 'Deliveries', featureKey: 'deliveries' },
           ]
         },
         {
           title: 'Management',
           items: [
-            { path: '/delivery-boys', icon: User, label: 'Delivery Boys' },
-            { path: '/employees', icon: UserCircle, label: 'Employees & Salaries' },
-            { path: '/suppliers', icon: ShoppingBag, label: 'Suppliers' },
-            { path: '/purchase-orders', icon: Receipt, label: 'Purchase Orders' },
+            { path: '/delivery-boys', icon: User, label: 'Delivery Boys', featureKey: 'delivery-boys' },
+            { path: '/employees', icon: UserCircle, label: 'Employees & Salaries', featureKey: 'employees' },
+            { path: '/suppliers', icon: ShoppingBag, label: 'Suppliers', featureKey: 'suppliers' },
+            { path: '/purchase-orders', icon: Receipt, label: 'Purchase Orders', featureKey: 'purchase-orders' },
           ]
         },
         {
           title: 'Finance',
           items: [
-            { path: '/expenses', icon: TrendingDown, label: 'Expenses' },
-            { path: '/cash', icon: Banknote, label: 'Cash' },
+            { path: '/expenses', icon: TrendingDown, label: 'Expenses', featureKey: 'expenses' },
+            { path: '/cash', icon: Banknote, label: 'Cash', featureKey: 'cash' },
           ]
         },
         {
           title: 'System',
           items: [
-            { path: '/reports', icon: BarChart3, label: t('nav.reports') },
-            { path: '/users', icon: Users, label: t('nav.users') },
-            { path: '/settings', icon: Settings, label: t('nav.settings') },
+            { path: '/reports', icon: BarChart3, label: t('nav.reports'), featureKey: 'reports' },
+            { path: '/users', icon: Users, label: t('nav.users'), featureKey: 'users' },
+            { path: '/settings', icon: Settings, label: t('nav.settings'), featureKey: 'settings' },
           ]
         }
       ];
@@ -126,6 +132,32 @@ export default function Sidebar({ isOpen, onToggle }) {
                 <div className="space-y-1 px-3">
                   {section.items.map((item) => {
                     const Icon = item.icon;
+                    const featureKey = item.featureKey;
+                    const allowed = !featureKey || isPlatformAdmin || isFeatureAllowed(featureKey, allowedFeatures);
+                    const isPremiumLocked = featureKey && !isPlatformAdmin && !allowed;
+
+                    if (isPremiumLocked) {
+                      return (
+                        <button
+                          key={item.path}
+                          type="button"
+                          onClick={() => {
+                            setPremiumFeatureLabel(item.label);
+                            setPremiumModalOpen(true);
+                            onToggle();
+                          }}
+                          className="group flex items-center justify-between px-4 py-3 rounded-lg transition-all duration-200 w-full text-left text-gray-700 hover:bg-gray-50 hover:text-amber-600"
+                        >
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            <Icon className="w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                            <span className="font-medium text-sm truncate">{item.label}</span>
+                            <Star className="w-4 h-4 flex-shrink-0 text-amber-500 fill-amber-500" aria-label="Premium" />
+                          </div>
+                          <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-100 translate-x-0 group-hover:translate-x-1 transition-all duration-200" />
+                        </button>
+                      );
+                    }
+
                     return (
                       <NavLink
                         key={item.path}
@@ -175,6 +207,11 @@ export default function Sidebar({ isOpen, onToggle }) {
           isOpen ? 'opacity-50' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onToggle}
+      />
+      <PremiumFeatureModal
+        isOpen={premiumModalOpen}
+        onClose={() => setPremiumModalOpen(false)}
+        featureName={premiumFeatureLabel}
       />
     </>
   );
