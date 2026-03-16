@@ -31,11 +31,13 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password, tenantCode = '') => {
     try {
       const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+      const normalizedUsername = typeof username === 'string' ? username.trim() : '';
+      const normalizedTenantCode = typeof tenantCode === 'string' ? tenantCode.trim() : '';
 
       const response = await axios.post(`${API_BASE_URL}/auth/login`, {
-        username,
+        username: normalizedUsername,
         password,
-        tenant_code: tenantCode || undefined
+        tenant_code: normalizedTenantCode || undefined
       });
       const { token, user } = response.data;
 

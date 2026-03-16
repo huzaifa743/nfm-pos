@@ -1,3 +1,3 @@
 git add .
-git commit -m "Feature permissions are separate from Edit."
+git commit -m "Fix login flow for empty tenant code"
 git push origin main

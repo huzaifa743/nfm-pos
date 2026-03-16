@@ -29,7 +29,13 @@ function getAllowedFeatures(tenantRow) {
 // Login - supports both super admin and tenant users
 router.post('/login', async (req, res) => {
   try {
-    const { username, password, tenant_code } = req.body;
+    const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    const tenant_code = typeof req.body?.tenant_code === 'string' ? req.body.tenant_code.trim() : '';
+
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required.' });
+    }
 
     // Check if platform-level login (no tenant_code): super_admin or admin
     if (!tenant_code) {
@@ -89,8 +95,60 @@ router.post('/login', async (req, res) => {
           });
         }
 
+        // 3. Tenant owner fallback when tenant code is omitted.
+        // Tenant owner usernames are unique in the master database, so we can
+        // safely resolve their tenant and complete login without requiring code.
+        const tenantOwner = await masterDbHelpers.get(
+          'SELECT id, tenant_code, restaurant_name, owner_name, owner_email, owner_phone, username, password, status, activated_at, allowed_features FROM tenants WHERE username = ?',
+          [username]
+        );
+
+        if (tenantOwner) {
+          if (tenantOwner.status === 'inactive' && tenantOwner.activated_at != null) {
+            return res.status(403).json({
+              error: 'Tenant is inactive. Contact super admin to activate.'
+            });
+          }
+
+          const validPassword = await bcrypt.compare(password, tenantOwner.password);
+          if (!validPassword) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+          }
+
+          if (tenantOwner.status === 'inactive' && tenantOwner.activated_at == null) {
+            await masterDbHelpers.run(
+              "UPDATE tenants SET status = 'active', activated_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE tenant_code = ?",
+              [tenantOwner.tenant_code]
+            );
+          }
+
+          const token = jwt.sign(
+            {
+              id: tenantOwner.id,
+              username: tenantOwner.username,
+              role: 'admin',
+              tenant_code: tenantOwner.tenant_code
+            },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+          );
+
+          return res.json({
+            token,
+            user: {
+              id: tenantOwner.id,
+              username: tenantOwner.username,
+              email: tenantOwner.owner_email,
+              role: 'admin',
+              tenant_code: tenantOwner.tenant_code,
+              restaurant_name: tenantOwner.restaurant_name,
+              allowed_features: getAllowedFeatures(tenantOwner)
+            }
+          });
+        }
+
         return res.status(401).json({
-          error: 'Invalid credentials. For platform login leave Tenant Code empty.'
+          error: 'Invalid credentials. Use a platform account with Tenant Code empty, or enter your Tenant Code for tenant users.'
         });
       } catch (dbError) {
         console.error('Platform login database error:', dbError);
