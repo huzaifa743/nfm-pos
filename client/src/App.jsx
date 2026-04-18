@@ -21,6 +21,7 @@ import PurchaseOrders from './pages/PurchaseOrders';
 import Expenses from './pages/Expenses';
 import CashManagement from './pages/CashManagement';
 import UnitConversion from './pages/UnitConversion';
+import BarcodeGenerator from './pages/BarcodeGenerator';
 import Layout from './components/Layout';
 import LoadingScreen from './components/LoadingScreen';
 
@@ -74,6 +75,7 @@ function AppRoutes() {
         <Route path="expenses" element={<Expenses />} />
         <Route path="cash" element={<CashManagement />} />
         <Route path="unit-conversions" element={<UnitConversion />} />
+        <Route path="barcode-generator" element={<BarcodeGenerator />} />
       </Route>
     </Routes>
   );

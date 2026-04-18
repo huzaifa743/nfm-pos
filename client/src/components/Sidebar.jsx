@@ -21,6 +21,7 @@ import {
   Banknote,
   TrendingDown,
   ArrowLeftRight,
+  Barcode,
   ChevronRight,
   Shield,
   Star
@@ -68,6 +69,7 @@ export default function Sidebar({ isOpen, onToggle }) {
           items: [
             { path: '/inventory', icon: Package, label: t('nav.inventory'), featureKey: 'inventory' },
             { path: '/unit-conversions', icon: ArrowLeftRight, label: 'Unit Conversion', featureKey: 'unit-conversions' },
+            { path: '/barcode-generator', icon: Barcode, label: 'Barcode Generator', featureKey: 'barcode-generator' },
             { path: '/sales-history', icon: History, label: t('nav.salesHistory'), featureKey: 'sales-history' },
             { path: '/deliveries', icon: Truck, label: 'Deliveries', featureKey: 'deliveries' },
           ]
