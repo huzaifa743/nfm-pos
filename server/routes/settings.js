@@ -91,7 +91,8 @@ router.get('/', async (req, res) => {
     receipt_auto_print: 'false',
     receipt_paper_size: '80mm',
     invoice_type: 'thermal',
-    display_tax_invoice: 'true'
+    display_tax_invoice: 'true',
+    show_nfm_footer: 'false'
   };
 
   try {

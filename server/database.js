@@ -207,6 +207,9 @@ function initializeDatabase() {
       db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('language', 'en')`, (err) => {
         if (err) console.error('Error inserting language:', err);
       });
+      db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('show_nfm_footer', 'false')`, (err) => {
+        if (err) console.error('Error inserting show_nfm_footer:', err);
+      });
     });
 
     // Check and create admin user after users table is created

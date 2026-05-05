@@ -32,6 +32,7 @@ export default function Settings() {
     receipt_paper_size: '80mm',
     invoice_type: 'thermal',
     display_tax_invoice: 'true',
+    show_nfm_footer: 'false',
   });
 
   const [logoPreview, setLogoPreview] = useState(null);
@@ -446,6 +447,19 @@ export default function Settings() {
                   <div>
                     <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">Display &quot;TAX INVOICE&quot; on receipt</span>
                     <p className={helperClass}>When disabled, &quot;TAX INVOICE&quot; will not appear on A4 or thermal invoices</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={settings.show_nfm_footer === 'true'}
+                    onChange={(e) => handleInputChange('show_nfm_footer', e.target.checked ? 'true' : 'false')}
+                    className="mt-1 w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">Display NFM Services footer on receipt</span>
+                    <p className={helperClass}>When enabled, shows &quot;Software By NFM Services &amp; Solutions&quot; and contact information on receipts</p>
                   </div>
                 </label>
               </div>

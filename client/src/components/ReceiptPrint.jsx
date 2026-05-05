@@ -295,6 +295,12 @@ export default function ReceiptPrint({ sale, onClose, onPrint }) {
               <p className="receipt-thanks">THANKS FOR COMING {companyName?.toUpperCase() || 'POS'}</p>
               <p className="receipt-nice-day">Have a nice day!</p>
               <div className="receipt-divider"></div>
+              {settings.show_nfm_footer === 'true' && (
+                <>
+                  <p style={{ textAlign: 'center', fontSize: '0.75rem', marginTop: '0.5rem', marginBottom: '0.25rem' }}>Software By NFM Services & Solutions</p>
+                  <p style={{ textAlign: 'center', fontSize: '0.75rem', marginBottom: '0.5rem' }}>Contact: 0337-7249638</p>
+                </>
+              )}
             </div>
           </div>
         </div>
