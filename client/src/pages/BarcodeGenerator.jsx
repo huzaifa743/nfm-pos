@@ -6,7 +6,7 @@ import api from '../api/api';
 import { useSettings } from '../contexts/SettingsContext';
 
 export default function BarcodeGenerator() {
-  const { formatCurrency } = useSettings();
+  const { formatCurrency, settings } = useSettings();
   const svgRef = useRef(null);
   const [products, setProducts] = useState([]);
   const [productSearch, setProductSearch] = useState('');
@@ -60,8 +60,8 @@ export default function BarcodeGenerator() {
   const getDisplayLines = () => {
     if (!showTextOnBarcode) return [];
     const lines = [];
+    // Display product/name and price only here (product details shown after barcode).
     if (showNameInText && barcodeLabel.trim()) lines.push(barcodeLabel.trim());
-    if (showBarcodeInText && barcodeValue.trim()) lines.push(barcodeValue.trim());
     if (showPriceInText && String(barcodePrice).trim()) {
       const parsed = Number(barcodePrice);
       if (Number.isFinite(parsed)) {
@@ -173,29 +173,90 @@ export default function BarcodeGenerator() {
       toast.error('Generate a barcode first');
       return;
     }
-
+    // Render full label (barcode image + meta text) onto canvas before download
     const svgData = new XMLSerializer().serializeToString(svgRef.current);
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
     const img = new Image();
-
     img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      context.fillStyle = '#ffffff';
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(img, 0, 0);
+      try {
+        const padding = 8;
+        const canvasWidth = Math.max(360, img.width);
+        // estimate text block height
+        const textLines = getDisplayLines();
+        const lineHeight = 15;
+        const headerHeight = settings?.restaurant_name ? 12 : 0;
+        const textBlockHeight = textLines.length * lineHeight + 1;
+        const canvasHeight = Math.ceil(img.height + padding + headerHeight + textBlockHeight + padding);
 
-      const link = document.createElement('a');
-      const safeLabel = (barcodeLabel || barcodeValue || 'barcode')
-        .replace(/[^a-zA-Z0-9-_]+/g, '-')
-        .toLowerCase();
-      link.download = `${safeLabel}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        // white background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        let y = padding;
+
+        // draw barcode and text (company name only, no logo)
+        drawBarcodeAndText();
+
+        function drawBarcodeAndText() {
+          // reserve space for company name if present
+          if (settings?.restaurant_name) {
+            ctx.fillStyle = '#000';
+            ctx.textAlign = 'center';
+            ctx.font = '600 12px Arial';
+            ctx.fillText(String(settings.restaurant_name).trim(), canvas.width / 2, y + 11);
+            y += 12;
+          }
+
+          // draw barcode image
+          const drawWidth = Math.min(canvas.width - padding * 2, img.width);
+          const drawHeight = (img.height * drawWidth) / img.width;
+          const drawX = (canvas.width - drawWidth) / 2;
+          ctx.drawImage(img, drawX, y, drawWidth, drawHeight);
+          y += Math.ceil(drawHeight) + 3;
+
+          // draw barcode number (attached number) if enabled
+          if (showBarcodeInText && barcodeValue.trim()) {
+            ctx.fillStyle = '#000';
+            ctx.textAlign = 'center';
+            ctx.font = '700 12px Arial';
+            ctx.fillText(String(barcodeValue).trim(), canvas.width / 2, y + 12);
+            y += 16;
+          }
+
+          // draw product meta lines
+          ctx.fillStyle = '#000';
+          ctx.textAlign = 'center';
+          textLines.forEach((line, idx) => {
+            ctx.font = idx === 0 ? '600 11px Arial' : '400 10px Arial';
+            ctx.fillText(String(line), canvas.width / 2, y + idx * lineHeight + 10);
+          });
+
+          // download
+          const link = document.createElement('a');
+          const safeLabel = (barcodeLabel || barcodeValue || 'barcode')
+            .replace(/[^a-zA-Z0-9-_]+/g, '-')
+            .toLowerCase();
+          link.download = `${safeLabel}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          URL.revokeObjectURL(url);
+        }
+      } catch (err) {
+        toast.error('Failed to create download');
+        console.error(err);
+      }
     };
-
-    img.src = `data:image/svg+xml;base64,${window.btoa(unescape(encodeURIComponent(svgData)))}`;
+    img.onerror = () => {
+      toast.error('Failed to load barcode image for download');
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
   };
 
   const handlePrint = () => {
@@ -215,6 +276,7 @@ export default function BarcodeGenerator() {
     printSvg.setAttribute('height', '100%');
     const svgMarkup = printSvg.outerHTML;
     const textLines = getDisplayLines();
+    const barcodeNumberMarkup = showBarcodeInText && barcodeValue.trim() ? `<div class="barcode-number">${String(barcodeValue).replace(/</g, '&lt;')}</div>` : '';
     const textMarkup = textLines
       .map((line) => `<div class="meta-line">${String(line).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`)
       .join('');
@@ -222,7 +284,7 @@ export default function BarcodeGenerator() {
       <html>
         <head>
           <title>Print Barcode</title>
-          <style>
+            <style>
             @page {
               size: 50mm 30mm;
               margin: 0;
@@ -233,49 +295,78 @@ export default function BarcodeGenerator() {
               padding: 0;
               width: 100%;
               height: 100%;
+              overflow: hidden;
             }
             body {
-              display: flex;
-              align-items: center;
-              justify-content: center;
+              display: block;
               background: #fff;
               font-family: Arial, sans-serif;
             }
             .label {
               width: 50mm;
               height: 30mm;
-              padding: 2mm;
+              padding: 1mm 2mm 1mm;
               display: flex;
               flex-direction: column;
               align-items: center;
               justify-content: flex-start;
-              gap: 0.5mm;
+              gap: 0;
+              overflow: hidden;
+              page-break-inside: avoid;
+              break-inside: avoid;
             }
             .barcode {
               width: 100%;
-              height: 18mm;
+              height: 14.5mm;
+              margin-bottom: 0;
             }
             .barcode svg {
               width: 100%;
               height: 100%;
               display: block;
+              margin-bottom: 0;
             }
             .meta {
               width: 100%;
               text-align: center;
               font-size: 9px;
-              line-height: 1.15;
+              line-height: 1.05;
+              display: flex;
+              flex-direction: column;
+              gap: 0;
             }
             .meta-line {
               white-space: nowrap;
               overflow: hidden;
               text-overflow: ellipsis;
             }
+            .meta-line:first-child {
+              font-size: 11px;
+              font-weight: 700;
+            }
+            .meta-line:nth-child(2) {
+              font-size: 10px;
+              font-weight: 600;
+            }
+            .barcode-number {
+              font-size: 11px;
+              font-weight: 700;
+              margin: 1.1mm 0 0;
+              line-height: 1;
+            }
+            .company {
+              font-size: 10px;
+              font-weight: 700;
+              margin-bottom: 0;
+              line-height: 1;
+            }
           </style>
         </head>
         <body>
           <div class="label">
+            ${settings?.restaurant_name ? `<div class="company">${String(settings.restaurant_name).replace(/</g, '&lt;')}</div>` : ''}
             <div class="barcode">${svgMarkup}</div>
+            ${barcodeNumberMarkup}
             <div class="meta">${textMarkup}</div>
           </div>
           <script>
@@ -539,12 +630,26 @@ export default function BarcodeGenerator() {
         <h2 className="text-sm font-semibold text-gray-700 mb-4">Preview</h2>
         <div className="min-h-[180px] border border-dashed border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center p-4">
           {barcodeValue.trim() ? (
-            <div className="w-full flex flex-col items-center">
-              <svg ref={svgRef} className="max-w-full" />
+            <div className="w-full flex flex-col items-center justify-center gap-1">
+                  {settings?.restaurant_name && (
+                    <div className="text-base font-semibold text-gray-800 mb-1">{settings.restaurant_name}</div>
+                  )}
+              <div className="w-full max-w-[340px] border border-transparent bg-white p-2 rounded">
+                <svg ref={svgRef} className="w-full block" />
+              </div>
+
+              {/* Barcode number (attached number) shown directly under barcode image */}
+              {showBarcodeInText && barcodeValue.trim() && (
+                <div className="mt-1 text-center text-gray-900 font-bold text-lg">{barcodeValue.trim()}</div>
+              )}
+
+              {/* Product details after barcode */}
               {getDisplayLines().length > 0 && (
-                <div className="mt-2 text-center text-xs text-gray-700 leading-5">
+                <div className="mt-1 text-center text-gray-800 leading-tight">
                   {getDisplayLines().map((line, index) => (
-                    <div key={`${line}-${index}`}>{line}</div>
+                    <div key={`${line}-${index}`} className={index === 0 ? 'text-sm font-medium' : 'text-sm'}>
+                      {line}
+                    </div>
                   ))}
                 </div>
               )}
