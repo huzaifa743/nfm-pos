@@ -585,8 +585,8 @@ const A4Receipt = ({ sale, onClose, onPrint }) => {
               </p>
               {settings?.show_nfm_footer === 'true' && (
                 <div style={{ marginTop: '8px', textAlign: 'center' }}>
-                  <p className="text-black" style={{ fontSize: '8pt', margin: '2px 0', padding: 0 }}>Software By NFM Services & Solutions</p>
-                  <p className="text-black" style={{ fontSize: '8pt', margin: '2px 0 0 0', padding: 0 }}>Contact: 0337-7249638</p>
+                  <p className="receipt-software">Software By NFM Services & Solutions</p>
+                  <p className="receipt-phone">Contact: 0337-7249638</p>
                 </div>
               )}
             </div>
