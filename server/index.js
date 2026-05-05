@@ -184,43 +184,41 @@ app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/cash', require('./routes/cash'));
 app.use('/api/unit-conversions', require('./routes/unitConversions'));
 
-// Serve React app in production (catch-all must be last)
-if (process.env.NODE_ENV === 'production') {
-  const distPath = path.join(__dirname, '../client/dist');
-  
-  // Serve static files first
+// Serve React app when a client build exists.
+// This keeps deep links like /tenants working even if NODE_ENV is not set to production.
+const distPath = path.join(__dirname, '../client/dist');
+const hasClientBuild = fs.existsSync(path.join(distPath, 'index.html'));
+
+if (hasClientBuild) {
   app.use(express.static(distPath));
-  
+
   // Root endpoint - serve React app or respond to healthcheck
   app.get('/', (req, res) => {
     try {
-      // Check if it's a healthcheck request
-      const isHealthcheck = req.headers['user-agent']?.includes('Healthcheck') || 
-                           req.query.health === 'check' ||
-                           req.headers['x-railway-healthcheck'] === 'true';
-      
+      const isHealthcheck = req.headers['user-agent']?.includes('Healthcheck') ||
+        req.query.health === 'check' ||
+        req.headers['x-railway-healthcheck'] === 'true';
+
       if (isHealthcheck) {
-        return res.status(200).json({ 
-          status: 'ok', 
+        return res.status(200).json({
+          status: 'ok',
           timestamp: new Date().toISOString(),
           uptime: process.uptime()
         });
       }
-      
-      // Serve React app
+
       res.sendFile(path.join(distPath, 'index.html'));
     } catch (err) {
-      // Fallback: just send OK status
       res.status(200).json({ status: 'ok' });
     }
   });
-  
+
   // Catch-all handler: send back React's index.html file for all non-API routes
   app.get('*', (req, res) => {
-    // Skip API routes, static files, and healthcheck
     if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path === '/health') {
       return res.status(404).json({ error: 'Not found' });
     }
+
     try {
       res.sendFile(path.join(distPath, 'index.html'));
     } catch (err) {
